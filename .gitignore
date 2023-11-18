@@ -162,3 +162,7 @@ cython_debug/
 #ignore files isnide folders from data/networks_data/*_anon/*.csv
 data/networks_data_raw/*_anon/*.csv
 data/networks_data_raw/*_anon_procesed/*.csv
+data/networks_data_raw/*_anon_procesed/*.zip
+
+#ignore Anton's documents
+references/papers/papers_anton/*

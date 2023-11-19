@@ -163,3 +163,47 @@ def basic_preprocessing(data_preprocess):
     data_preprocessed["TP_measurements"] = data_ts_tp_proc
     
     return data_preprocessed  #, dict_bus2nodeid, dict_smms2nodeid
+
+def preprocess(data_preprocess):
+    """
+    Preprocesses the raw data to be ready for use as graph.
+    """
+    data_preprocessed_basic = basic_preprocessing(data_preprocess)
+    data_preprocessed = dict()
+    data_preprocessed["nodes_static_data"] = data_preprocessed_basic["nodes_static_data"]
+    data_preprocessed["edges_static_data"] = data_preprocessed_basic["edges_static_data"]
+
+    ###join tp and smm measurements
+    data_ts_smm_proc = data_preprocessed_basic["SMM_measurements"]
+    data_ts_tp_proc = data_preprocessed_basic["TP_measurements"]
+
+    #TS measurements first need come extra columns
+    data_ts_tp_proc = data_ts_tp_proc.rename(columns={"trafo_node_id": "node_id"})
+    
+    #SMM measurements need to drop some columns
+    data_ts_smm_proc = data_ts_smm_proc.drop(columns=["trafo_node_id", "active_energy", "reactive_energy"])
+
+    #we forgot te get weather data for trafo location, so we will asign it mean values of whole network for particular timestamp
+    df_mean = data_ts_smm_proc.drop(columns=["node_id", "active_power", "reactive_power", "current", "voltage", ]).groupby(["date_time"]).agg("mean").reset_index()
+    data_ts_tp_proc = pd.merge(data_ts_tp_proc, df_mean, on="date_time", how="inner")
+
+    #join tp and smm measurements to one dataframe
+    df_ts_smm_tp_proc = pd.concat([data_ts_smm_proc, data_ts_tp_proc], ignore_index=True)
+
+    #since almost all data about current is missing we will drop it
+    df_ts_smm_tp_proc = df_ts_smm_tp_proc.drop(columns=["current"])
+
+    #we now have to aggregate data by date_time and node_id as one node can have multiple measurements at the same time (multiple SMM for one PMO)
+    #some columns will be aggregated by mean, some by sum
+    df_mean = df_ts_smm_tp_proc.drop(columns=["active_power", "reactive_power"])
+    df_sum = df_ts_smm_tp_proc[["date_time", "node_id", "active_power", "reactive_power"]]
+
+    df_mean = df_mean.groupby(["date_time", "node_id"]).agg("mean").reset_index()
+    df_sum = df_sum.groupby(["date_time", "node_id"]).agg("sum").reset_index()
+
+    df_ts_smm_tp_proc = pd.merge(df_mean, df_sum, on=["date_time", "node_id"], how="inner")
+
+    #add to data dictionary
+    data_preprocessed["measurements"] = df_ts_smm_tp_proc
+
+    return data_preprocessed

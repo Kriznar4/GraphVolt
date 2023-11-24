@@ -53,6 +53,59 @@ def save_raw_network_data(trafo_id, data, depth=1):
     return trafo_id
 
 #------------------------------------------
+## Functions for checking data
+#------------------------------------------
+def check_data(data, start_date="2021-06-01 00:00:00", end_date="2023-06-01 00:00:00", freq="15min"):
+    """
+    Check if the data is valid.
+
+    There should be all records form including `start_date` to excluding 
+    `end_date` with frequency `freq` for all nodes and for trafo.
+
+    Also check if there are all smms from nodes is in timeseries.
+    """
+
+    df_nodes = data["nodes_static_data"]
+    df_edges = data["edges_static_data"]
+    df_smm_measurments = data["SMM_measurements"]
+    df_tp_measurments = data["TP_measurements"]
+
+    # Check if there are all smms from nodes is in timeseries.
+    smms = df_nodes["smm"].unique()
+    smms_in_ts = df_smm_measurments["SMM"].unique()
+    missing_smms = [smm for smm in smms if smm not in smms_in_ts]
+    if len(missing_smms) > 0:
+        if len(missing_smms) != 1 and not missing_smms[0].isna():
+            print(f"Missing smms in timeseries: {missing_smms}")
+
+    # Check if there are all records form including `start_date` to excluding
+    # `end_date` with frequency `freq` for all nodes and for trafo.
+    #produce timeseries from start_date to end_date with freq
+    timeseries = pd.date_range(start=start_date, end=end_date, freq=freq)[:-1]
+    df_smm_grouped = df_smm_measurments.groupby("SMM")
+    for i, df in df_smm_grouped:
+        if timeseries.isin(df["date_time"]).sum() != len(timeseries):
+            print(f"Missing records for SMM {i}")
+        #check for duplicated records
+        if df.duplicated(subset="date_time").sum() > 0:
+            print(f"Duplicated records for SMM {i}")
+
+    #TODO check for duplicated records
+        
+    if timeseries.isin(df_tp_measurments["date_time"]).sum() != len(timeseries):
+        print("Missing records for trafo")
+    if df_tp_measurments.duplicated(subset="date_time").sum() > 0:
+            print(f"Duplicated records for SMM {i}")
+
+    for i, df in df_smm_grouped:
+        #count nan values for each column separately
+        print(i)
+        print(df.isna().sum())
+        print("")      
+
+
+
+#------------------------------------------
 ## Functions for basic data preprocessing
 #------------------------------------------
 ### Helper functions
@@ -184,14 +237,16 @@ def preprocess(data_preprocess):
     data_ts_smm_proc = data_ts_smm_proc.drop(columns=["trafo_node_id", "active_energy", "reactive_energy"])
 
     #we forgot te get weather data for trafo location, so we will asign it mean values of whole network for particular timestamp
-    df_mean = data_ts_smm_proc.drop(columns=["node_id", "active_power", "reactive_power", "current", "voltage", ]).groupby(["date_time"]).agg("mean").reset_index()
-    data_ts_tp_proc = pd.merge(data_ts_tp_proc, df_mean, on="date_time", how="inner")
+    # df_mean = data_ts_smm_proc.drop(columns=["node_id", "active_power", "reactive_power", "current", "voltage", ]).groupby(["date_time"]).agg("mean").reset_index()
+    # data_ts_tp_proc = pd.merge(data_ts_tp_proc, df_mean, on="date_time", how="inner")
 
     #join tp and smm measurements to one dataframe
     df_ts_smm_tp_proc = pd.concat([data_ts_smm_proc, data_ts_tp_proc], ignore_index=True)
 
     #since almost all data about current is missing we will drop it
     df_ts_smm_tp_proc = df_ts_smm_tp_proc.drop(columns=["current"])
+
+    #TODO fill nans
 
     #we now have to aggregate data by date_time and node_id as one node can have multiple measurements at the same time (multiple SMM for one PMO)
     #some columns will be aggregated by mean, some by sum

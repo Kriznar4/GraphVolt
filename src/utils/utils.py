@@ -74,9 +74,9 @@ def check_data(data, start_date="2021-06-01 00:00:00", end_date="2023-06-01 00:0
     smms = df_nodes["smm"].unique()
     smms_in_ts = df_smm_measurments["SMM"].unique()
     missing_smms = [smm for smm in smms if smm not in smms_in_ts]
-    if len(missing_smms) > 0:
-        if len(missing_smms) != 1 and not missing_smms[0].isna():
-            print(f"Missing smms in timeseries: {missing_smms}")
+    # if len(missing_smms) > 0:
+    #     if len(missing_smms) != 1 and not missing_smms[0].isna():
+    #         print(f"Missing smms in timeseries: {missing_smms}")
 
     # Check if there are all records form including `start_date` to excluding
     # `end_date` with frequency `freq` for all nodes and for trafo.
@@ -97,11 +97,11 @@ def check_data(data, start_date="2021-06-01 00:00:00", end_date="2023-06-01 00:0
     if df_tp_measurments.duplicated(subset="date_time").sum() > 0:
             print(f"Duplicated records for SMM {i}")
 
-    for i, df in df_smm_grouped:
-        #count nan values for each column separately
-        print(i)
-        print(df.isna().sum())
-        print("")      
+    # for i, df in df_smm_grouped:
+    #     #count nan values for each column separately
+    #     print(i)
+    #     print(df.isna().sum())
+    #     print("")      
 
 
 
@@ -234,7 +234,7 @@ def preprocess(data_preprocess):
     data_ts_tp_proc = data_ts_tp_proc.rename(columns={"trafo_node_id": "node_id"})
     
     #SMM measurements need to drop some columns
-    data_ts_smm_proc = data_ts_smm_proc.drop(columns=["trafo_node_id", "active_energy", "reactive_energy"])
+    data_ts_smm_proc = data_ts_smm_proc.drop(columns=["trafo_node_id"])
 
     #we forgot te get weather data for trafo location, so we will asign it mean values of whole network for particular timestamp
     # df_mean = data_ts_smm_proc.drop(columns=["node_id", "active_power", "reactive_power", "current", "voltage", ]).groupby(["date_time"]).agg("mean").reset_index()
@@ -242,9 +242,6 @@ def preprocess(data_preprocess):
 
     #join tp and smm measurements to one dataframe
     df_ts_smm_tp_proc = pd.concat([data_ts_smm_proc, data_ts_tp_proc], ignore_index=True)
-
-    #since almost all data about current is missing we will drop it
-    df_ts_smm_tp_proc = df_ts_smm_tp_proc.drop(columns=["current"])
 
     #TODO fill nans
 
@@ -262,3 +259,73 @@ def preprocess(data_preprocess):
     data_preprocessed["measurements"] = df_ts_smm_tp_proc
 
     return data_preprocessed
+
+#------------------------------------------
+## Functions for filing nan values
+#------------------------------------------
+def fill_data_simple_homogeniouse(data):
+    """
+    Filling missing values. 
+        - voltage: at each timstep replaces nans with averge of all measured voltages at that timestep
+                   if all values are nan, then it interpolats linearli for each smm
+        - power: interpolates it linearly for each timestep
+        - energy: drop as trafo dont have measurments
+        - current: drop as smms have almost no measurments
+    """
+    df_nodes = data["nodes_static_data"]
+    df_edges = data["edges_static_data"]
+    df_smm_measurments = data["SMM_measurements"].drop(columns=["active_energy", "reactive_energy", "current"])
+    df_tp_measurments = data["TP_measurements"].drop(columns=["current"])
+
+    #fill each timestamp voltage with mean of non missing voltage values
+    df_smm_measurments, mean_voltages, dates = fill_voltage_rows(df_smm_measurments)
+
+    
+    #fill in columns with interpolate linear. Include voltage because all values in a rouw could be nan
+    df_smm_measurments = fill_columns(df_smm_measurments)
+
+    #new df with columns date_time and voltage and values from mean_voltages and dates
+    df_tp_measurments = fill_trafo(df_tp_measurments, dates, mean_voltages)
+
+    data["SMM_measurements"] = df_smm_measurments
+    data["TP_measurements"] = df_tp_measurments
+
+    return data
+
+def fill_voltage_rows(df_smm_measurments):
+    """
+    fill each timestamp voltage with mean of non missing voltage values
+    """
+    grouped_dfs = df_smm_measurments.groupby("date_time")
+    new_dfs = []
+    mean_voltages = []
+    dates = []
+    for i, df in grouped_dfs:
+        mean_voltage = df['voltage'].mean()
+        dates.append(i)
+        mean_voltages.append(mean_voltage)
+        df['voltage'] = df['voltage'].fillna(mean_voltage)
+        new_dfs.append(df)
+    df_smm_measurments = pd.concat(new_dfs).reset_index(drop=True)
+
+    return df_smm_measurments, mean_voltages, dates
+
+def fill_columns(df_smm_measurments, list_of_columns=["active_power", "reactive_power", "voltage"]):
+    """
+    fill in columns with interpolate linear. Include voltage because all values in a rouw could be nan
+    """
+    grouped_dfs = df_smm_measurments.groupby("SMM")
+    new_dfs = []
+    for i, df in grouped_dfs:
+        df[list_of_columns] = df[list_of_columns].interpolate(method="linear", limit_direction="both")
+        new_dfs.append(df)
+    df_smm_measurments = pd.concat(new_dfs).reset_index(drop=True)
+    return df_smm_measurments
+
+def fill_trafo(df_tp_measurments, dates, mean_voltages, list_of_columns=["active_power", "reactive_power", "voltage"]):
+    df_mean_voltages = pd.DataFrame({"date_time": dates, "voltage": mean_voltages})
+
+    df_tp_measurments['voltage'] = df_tp_measurments['voltage'].fillna(df_mean_voltages['voltage'])
+    df_tp_measurments[list_of_columns] = df_tp_measurments[list_of_columns].interpolate(method="linear", limit_direction="both")
+    return df_tp_measurments
+    

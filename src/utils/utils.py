@@ -408,7 +408,7 @@ def read_and_prepare_data(trafo_id, depth=1):
     data.pop("nodes_static_data")
     return data
 
-def get_list_od_timestemps(df_measurments):
+def get_list_of_timestemps(df_measurments):
     """
     Returns list of dfs ordered by date_time.
     """

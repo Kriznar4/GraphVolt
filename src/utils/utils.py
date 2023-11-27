@@ -353,7 +353,20 @@ def fill_junction_RO_measurments(data):
         list_dfs.append(df_measurments_grouped.copy())
     df_measurments_filled = pd.concat(list_dfs, ignore_index=True)
 
+    #add columns for year, month, day, hour, minute
+    df_measurments_filled["dt"] = pd.to_datetime(df_measurments_filled["date_time"])
+    df_measurments_filled["year"] = df_measurments_filled["dt"].dt.year
+    df_measurments_filled["month"] = df_measurments_filled["dt"].dt.month
+    df_measurments_filled["day"] = df_measurments_filled["dt"].dt.day
+    df_measurments_filled["hour"] = df_measurments_filled["dt"].dt.hour
+    df_measurments_filled["minute"] = df_measurments_filled["dt"].dt.minute
+    df_measurments_filled = df_measurments_filled.drop(columns=["dt"])
+
     data["measurements"] = df_measurments_filled
+
+    #DATA NORMALIZATION???
+    #SHOULD TP HAVE AGREGATED POWER???
+
     return data
 
 def prepare_nodes(data):
@@ -398,7 +411,7 @@ def read_and_prepare_data(trafo_id, depth=1):
     """
     data, _ = read_raw_network_data(trafo_id, depth=depth)
     data = fill_data_simple_homogeneous(data)
-    data = preprocess(read_raw_network_data(trafo_id, depth=depth)[0])
+    data = preprocess(data)
     data = fill_junction_RO_measurments(data)
     data = prepare_nodes(data)
     data = prepare_edges(data)
@@ -406,14 +419,15 @@ def read_and_prepare_data(trafo_id, depth=1):
     data["measurments"] = pd.merge(data["nodes_static_data"], data["measurements"], on=["node_id"], how="inner")
     #remove data["nodes_static_data"]
     data.pop("nodes_static_data")
+
     return data
 
-def get_list_of_timestemps(df_measurments):
+def get_array_of_timestemps(df_measurments):
     """
     Returns list of dfs ordered by date_time.
     """
     df_grouped = df_measurments.groupby("date_time")
     dfs = [(date, df) for date, df in df_grouped]
     dfs = sorted(dfs, key=lambda x: x[0])
-    dfs = [df for _, df in dfs]
+    dfs = np.dstack([df.sort_values(by="node_id").drop(columns=["date_time", "node_id"]).values.T for _, df in dfs])
     return dfs

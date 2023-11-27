@@ -402,4 +402,18 @@ def read_and_prepare_data(trafo_id, depth=1):
     data = fill_junction_RO_measurments(data)
     data = prepare_nodes(data)
     data = prepare_edges(data)
+    #join dinamic and static node data
+    data["measurments"] = pd.merge(data["nodes_static_data"], data["measurements"], on=["node_id"], how="inner")
+    #remove data["nodes_static_data"]
+    data.pop("nodes_static_data")
     return data
+
+def get_list_od_timestemps(df_measurments):
+    """
+    Returns list of dfs ordered by date_time.
+    """
+    df_grouped = df_measurments.groupby("date_time")
+    dfs = [(date, df) for date, df in df_grouped]
+    dfs = sorted(dfs, key=lambda x: x[0])
+    dfs = [df for _, df in dfs]
+    return dfs

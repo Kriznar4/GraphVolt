@@ -263,7 +263,7 @@ def preprocess(data_preprocess):
 #------------------------------------------
 ## Functions for filing nan values
 #------------------------------------------
-def fill_data_simple_homogeniouse(data):
+def fill_data_simple_homogeneous(data):
     """
     Filling missing values. 
         - voltage: at each timstep replaces nans with averge of all measured voltages at that timestep
@@ -328,4 +328,30 @@ def fill_trafo(df_tp_measurments, dates, mean_voltages, list_of_columns=["active
     df_tp_measurments['voltage'] = df_tp_measurments['voltage'].fillna(df_mean_voltages['voltage'])
     df_tp_measurments[list_of_columns] = df_tp_measurments[list_of_columns].interpolate(method="linear", limit_direction="both")
     return df_tp_measurments
-    
+
+
+#------------------------------------------
+## Function for filling data in junctions and PO nodes with measurments
+#------------------------------------------
+def fill_junction_PO_measurments(data):
+    """
+    Fills the data so even nodes without measurments have them.
+    """
+    df_nodes = data["nodes_static_data"]
+    df_edges = data["edges_static_data"]
+    df_measurments = data["measurements"]
+
+    all_nodes = df_nodes["node_id"]
+    missing_nodes = all_nodes[~all_nodes.isin(df_measurments["node_id"].unique())]
+
+    df_measurments_grouped = df_measurments.groupby(["date_time"]).agg("mean").reset_index()
+    df_measurments_grouped["active_power"] = 0
+    df_measurments_grouped["reactive_power"] = 0
+    list_dfs = [df_measurments]
+    for node_id in missing_nodes:
+        df_measurments_grouped["node_id"] = node_id
+        list_dfs.append(df_measurments_grouped.copy())
+    df_measurments_filled = pd.concat(list_dfs, ignore_index=True)
+
+    data["measurements"] = df_measurments_filled
+    return data

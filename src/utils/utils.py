@@ -331,9 +331,9 @@ def fill_trafo(df_tp_measurments, dates, mean_voltages, list_of_columns=["active
 
 
 #------------------------------------------
-## Function for filling data in junctions and PO nodes with measurments
+## Function for filling data in junctions and RO nodes with measurments
 #------------------------------------------
-def fill_junction_PO_measurments(data):
+def fill_junction_RO_measurments(data):
     """
     Fills the data so even nodes without measurments have them.
     """
@@ -354,4 +354,52 @@ def fill_junction_PO_measurments(data):
     df_measurments_filled = pd.concat(list_dfs, ignore_index=True)
 
     data["measurements"] = df_measurments_filled
+    return data
+
+def prepare_nodes(data):
+    """
+    Fills nans in columns prikljucna_moc_oddaja_aggr, prikljucna_moc_odjem_aggr.
+    Onehot encodes tipe of node.
+    Drop unnecesarly columns. (["smm_list", "prikljucna_moc_odjem", "prikljucna_moc_oddaja", "x_y", "lon_lat"])
+    """
+    df_nodes = data["nodes_static_data"]
+
+    #fills nans
+    df_nodes["prikljucna_moc_oddaja_aggr"] = df_nodes["prikljucna_moc_oddaja_aggr"].fillna(0)
+    df_nodes["prikljucna_moc_odjem_aggr"] = df_nodes["prikljucna_moc_odjem_aggr"].fillna(0)
+
+    #onehot encoding
+    df_nodes = pd.get_dummies(df_nodes, columns=["aclass_id"])
+    df_nodes["aclass_id_junction"] = df_nodes["aclass_id_junction"] + df_nodes["aclass_id_RO"]
+    df_nodes = df_nodes.drop(columns=["aclass_id_RO"])
+    df_nodes = df_nodes.rename(columns={"aclass_id_junction": "junction", "aclass_id_TR": "TR", "aclass_id_PMO": "PMO"})
+
+    #drop columns
+    df_nodes = df_nodes.drop(columns=["smm_list", "prikljucna_moc_odjem", "prikljucna_moc_oddaja", "x_y", "lon_lat"])
+    df_nodes = df_nodes.rename(columns={"prikljucna_moc_oddaja_aggr": "power_consumption", "prikljucna_moc_odjem_aggr": "power_production"})
+    data["nodes_static_data"] = df_nodes
+
+    return data
+
+def prepare_edges(data):
+    """
+    Drop unnecesary columns. (["type", "coords", "coords_transformed"])
+    """
+    df_edges = data["edges_static_data"]
+    df_edges = df_edges.drop(columns=["type", "coords", "coords_transformed"])
+    data["edges_static_data"] = df_edges
+
+    return data
+
+def read_and_prepare_data(trafo_id, depth=1):
+    """
+    Reads raw data and prepares it for use as graph with measurements. Now data is ready to be transformed
+    to pytorch geometric temporal data format.
+    """
+    data, _ = read_raw_network_data(trafo_id, depth=depth)
+    data = fill_data_simple_homogeneous(data)
+    data = preprocess(read_raw_network_data(trafo_id, depth=depth)[0])
+    data = fill_junction_RO_measurments(data)
+    data = prepare_nodes(data)
+    data = prepare_edges(data)
     return data

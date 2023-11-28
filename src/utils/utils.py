@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import os
+from torch_geometric_temporal.signal import StaticGraphTemporalSignal
 
 def read_raw_network_data(trafo_id, depth=1):
     """
@@ -365,7 +366,7 @@ def fill_junction_RO_measurments(data):
     data["measurements"] = df_measurments_filled
 
     #DATA NORMALIZATION???
-    #SHOULD TP HAVE AGREGATED POWER???
+    #SHOULD TP HAVE AGREGATED POWER??? OR MAYBE U*I???
 
     return data
 
@@ -429,5 +430,68 @@ def get_array_of_timestemps(df_measurments):
     df_grouped = df_measurments.groupby("date_time")
     dfs = [(date, df) for date, df in df_grouped]
     dfs = sorted(dfs, key=lambda x: x[0])
-    dfs = np.dstack([df.sort_values(by="node_id").drop(columns=["date_time", "node_id"]).values.T for _, df in dfs])
-    return dfs
+    dfs = [df.sort_values(by="node_id").drop(columns=["date_time", "node_id"]) for _, df in dfs]
+    #get index of voltage column
+
+    #column_names = dfs[0].columns
+
+    dfs = np.stack([df.values for df in dfs])#, axis=-1)
+    return dfs#, column_names
+
+class SimpleGraphVoltDatasetLoader(object):
+    """
+    Check this https://pytorch-geometric-temporal.readthedocs.io/en/latest/_modules/torch_geometric_temporal/dataset/wikimath.html#WikiMathsDatasetLoader
+    for an example of how to implement a dataset loader
+
+    And here are the docs https://pytorch-geometric-temporal.readthedocs.io/en/latest/modules/signal.html
+    """
+    def __init__(self, trafo_id):
+        self._trafo_id = trafo_id
+        self._read_data()
+
+    def _read_data(self):
+        dataset = read_and_prepare_data(self._trafo_id)
+        self._df_edges = dataset["edges_static_data"]
+        self._df_measurments = dataset["measurements"]
+        self._periods = len(self._df_measurments["date_time"].unique())
+        self._node_counts = len(self._df_measurments["node_id"].unique())
+
+    def _get_edges_and_edge_weights(self):
+        self._edges = self._df_edges[["from_node_id", "to_node_id"]].to_numpy().T
+        self._edge_weights = self._df_edges.drop(["from_node_id", "to_node_id"], axis=1).to_numpy()
+
+    def _get_targets_and_features(self):
+        #voltage is the 0th column
+        #columns names: ['voltage', 'temperature_2m', 'snow_depth', 'cloud_cover', 'is_day',
+        #'shortwave_radiation', 'direct_radiation', 'diffuse_radiation',
+        #'direct_normal_irradiance', 'active_power', 'reactive_power', 'year',
+        #'month', 'day', 'hour', 'minute']
+        voltage_index = 0
+
+        dfs = get_array_of_timestemps(self._df_measurments)
+        targets = []
+        features = []
+        for i in range(self._periods-self.num_timesteps_in-self.num_timesteps_out+1):
+            features.append(dfs[i:i+self.num_timesteps_in, :, :])
+            # features.append(dfs[:,:,i:i+self.num_timesteps_in])
+            targets.append(dfs[i+self.num_timesteps_in:i+self.num_timesteps_in+self.num_timesteps_out, :, voltage_index:voltage_index+1])
+            # targets.append(dfs[:, voltage_index, i+self.num_timesteps_in:i+self.num_timesteps_in+self.num_timesteps_out])
+        self.features = np.stack(features)
+        self.targets = np.stack(targets)
+        print(self.features.shape)
+        print(self.targets.shape)
+
+
+    def get_dataset(self, num_timesteps_in: int = 12, num_timesteps_out: int = 4) -> StaticGraphTemporalSignal:
+        self.num_timesteps_in = num_timesteps_in
+        self.num_timesteps_out = num_timesteps_out
+        self._get_edges_and_edge_weights()
+        self._get_targets_and_features()
+        dataset = StaticGraphTemporalSignal(
+            self._edges, 
+            self._edge_weights, 
+            self.features, 
+            self.targets
+            )
+        return dataset
+        

@@ -435,7 +435,7 @@ def get_array_of_timestemps(df_measurments):
 
     #column_names = dfs[0].columns
 
-    dfs = np.stack([df.values for df in dfs])#, axis=-1)
+    dfs = np.stack([df.values for df in dfs], axis=-1)
     return dfs#, column_names
 
 class SimpleGraphVoltDatasetLoader(object):
@@ -456,9 +456,13 @@ class SimpleGraphVoltDatasetLoader(object):
         self._periods = len(self._df_measurments["date_time"].unique())
         self._node_counts = len(self._df_measurments["node_id"].unique())
 
-    def _get_edges_and_edge_weights(self):
+    def _get_edges_and_edge_weights_and_edge_features(self):
         self._edges = self._df_edges[["from_node_id", "to_node_id"]].to_numpy().T
-        self._edge_weights = self._df_edges.drop(["from_node_id", "to_node_id"], axis=1).to_numpy()
+        self._edge_features = self._df_edges.drop(["from_node_id", "to_node_id"], axis=1).to_numpy()
+        self._edge_weights = np.ones(self._edges.shape[1])
+        print(self._edges.shape)
+        print(self._edge_features.shape)
+        print(self._edge_weights.shape)
 
     def _get_targets_and_features(self):
         #voltage is the 0th column
@@ -466,18 +470,21 @@ class SimpleGraphVoltDatasetLoader(object):
         #'shortwave_radiation', 'direct_radiation', 'diffuse_radiation',
         #'direct_normal_irradiance', 'active_power', 'reactive_power', 'year',
         #'month', 'day', 'hour', 'minute']
+
         voltage_index = 0
 
-        dfs = get_array_of_timestemps(self._df_measurments)
+        self.dfs = get_array_of_timestemps(self._df_measurments)
+
         targets = []
         features = []
         for i in range(self._periods-self.num_timesteps_in-self.num_timesteps_out+1):
-            features.append(dfs[i:i+self.num_timesteps_in, :, :])
-            # features.append(dfs[:,:,i:i+self.num_timesteps_in])
-            targets.append(dfs[i+self.num_timesteps_in:i+self.num_timesteps_in+self.num_timesteps_out, :, voltage_index:voltage_index+1])
-            # targets.append(dfs[:, voltage_index, i+self.num_timesteps_in:i+self.num_timesteps_in+self.num_timesteps_out])
+            # features.append(dfs[i:i+self.num_timesteps_in, :, :])
+            features.append(dfs[:,:,i:i+self.num_timesteps_in])
+            # targets.append(dfs[i+self.num_timesteps_in:i+self.num_timesteps_in+self.num_timesteps_out, :, voltage_index:voltage_index+1])
+            targets.append(dfs[:, voltage_index, i+self.num_timesteps_in:i+self.num_timesteps_in+self.num_timesteps_out])
         self.features = np.stack(features)
         self.targets = np.stack(targets)
+
         print(self.features.shape)
         print(self.targets.shape)
 
@@ -485,7 +492,7 @@ class SimpleGraphVoltDatasetLoader(object):
     def get_dataset(self, num_timesteps_in: int = 12, num_timesteps_out: int = 4) -> StaticGraphTemporalSignal:
         self.num_timesteps_in = num_timesteps_in
         self.num_timesteps_out = num_timesteps_out
-        self._get_edges_and_edge_weights()
+        self._get_edges_and_edge_weights_and_edge_features()
         self._get_targets_and_features()
         dataset = StaticGraphTemporalSignal(
             self._edges, 
@@ -494,4 +501,5 @@ class SimpleGraphVoltDatasetLoader(object):
             self.targets
             )
         return dataset
+        
         

@@ -473,7 +473,7 @@ class SimpleGraphVoltDatasetLoader(object):
 
         voltage_index = 0
 
-        self.dfs = get_array_of_timestemps(self._df_measurments)
+        dfs = get_array_of_timestemps(self._df_measurments)
 
         targets = []
         features = []

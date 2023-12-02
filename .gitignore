@@ -168,4 +168,3 @@ data/networks_data_raw/*_anon_procesed/*_anon_procesed
 #ignore Anton's documents
 references/papers/papers_anton/*
 src/utils/environment.yml
-src/utils/requirements.txt

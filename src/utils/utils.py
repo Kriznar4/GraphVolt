@@ -405,6 +405,23 @@ def prepare_edges(data):
 
     return data
 
+# data normalization
+def normalize_data(data, column_list):
+    """
+    Normalizes columns in data. Normalized columns are excluded from column_list.
+    """
+    # columns_replace = [i for i in list(columns) if i not in column_list]
+    data_normalize = data.drop(columns=column_list)
+    
+    mean = data_normalize.mean()
+    std = data_normalize.std()
+    
+    for column in data_normalize.columns:
+        data_new = (data[column] - mean[column]) / std[column]
+        data[column] = data_new
+        
+    return data, (mean, std)
+
 def read_and_prepare_data(trafo_id, depth=1):
     """
     Reads raw data and prepares it for use as graph with measurements. Now data is ready to be transformed
@@ -420,8 +437,17 @@ def read_and_prepare_data(trafo_id, depth=1):
     data["measurements"] = pd.merge(data["nodes_static_data"], data["measurements"], on=["node_id"], how="inner")
     #remove data["nodes_static_data"]
     data.pop("nodes_static_data")
-
-    return data
+    
+    # normalize data and return mean and std
+    mean_and_std = {}
+    measurements_not_normalized = ['node_id', 'PMO', 'TR', 'junction', 'date_time']
+    data['measurements'], mean_and_std['measurements'] = normalize_data(data['measurements'], measurements_not_normalized)
+    edges_static_data_not_normalized = ['from_node_id', 'to_node_id']
+    data['edges_static_data'], mean_and_std['edges_static_data'] = normalize_data(data['edges_static_data'], edges_static_data_not_normalized)
+    
+    print(data['measurements'].head(1))
+    
+    return data, mean_and_std
 
 def get_array_of_timestemps(df_measurments):
     """
@@ -450,7 +476,7 @@ class SimpleGraphVoltDatasetLoader(object):
         self._read_data()
 
     def _read_data(self):
-        dataset = read_and_prepare_data(self._trafo_id)
+        dataset, self.mean_and_std = read_and_prepare_data(self._trafo_id) # save in self.mean_and_std
         self._df_edges = dataset["edges_static_data"]
         self._df_measurments = dataset["measurements"]
         self._periods = len(self._df_measurments["date_time"].unique())

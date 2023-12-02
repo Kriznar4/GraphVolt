@@ -417,7 +417,7 @@ def read_and_prepare_data(trafo_id, depth=1):
     data = prepare_nodes(data)
     data = prepare_edges(data)
     #join dinamic and static node data
-    data["measurments"] = pd.merge(data["nodes_static_data"], data["measurements"], on=["node_id"], how="inner")
+    data["measurements"] = pd.merge(data["nodes_static_data"], data["measurements"], on=["node_id"], how="inner")
     #remove data["nodes_static_data"]
     data.pop("nodes_static_data")
 

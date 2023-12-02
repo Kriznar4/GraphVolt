@@ -445,8 +445,6 @@ def read_and_prepare_data(trafo_id, depth=1):
     edges_static_data_not_normalized = ['from_node_id', 'to_node_id']
     data['edges_static_data'], mean_and_std['edges_static_data'] = normalize_data(data['edges_static_data'], edges_static_data_not_normalized)
     
-    print(data['measurements'].head(1))
-    
     return data, mean_and_std
 
 def get_array_of_timestemps(df_measurments):

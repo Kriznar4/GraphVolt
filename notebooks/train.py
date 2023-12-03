@@ -4,7 +4,7 @@ import sys
 sys.path.append("../src/utils")
 from utils import SimpleGraphVoltDatasetLoader, read_and_prepare_data
 from torch_geometric_temporal.signal import temporal_signal_split
-
+from tqdm import tqdm
 
 import torch
 torch.cuda.empty_cache() 
@@ -12,10 +12,11 @@ torch.cuda.empty_cache()
 
 
 trafo_id = "T1330"
+
 loader = SimpleGraphVoltDatasetLoader(trafo_id)
 loader_data = loader.get_dataset(num_timesteps_in=12, num_timesteps_out=4)
 
-test_dataset, train_dataset = temporal_signal_split(loader_data, train_ratio=0.2)
+train_dataset, test_dataset = temporal_signal_split(loader_data, train_ratio=0.8)
 
 
 
@@ -55,15 +56,17 @@ subset = 2000
 model = TemporalGNN(node_features=21, periods=4).to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 model.train()
+batch_size = 5000
 
 epochs_loss = []
 
 print("Running training...")
 for epoch in range(2): 
+    epoch_loss = []
     loss = 0
     step = 0
     print(f"--------- Epoch {epoch} ---------")
-    for snapshot in train_dataset:
+    for snapshot in tqdm(train_dataset):
         #print(f"--- Step {step} ---")
         snapshot = snapshot.to(device)
         # Get model predictions
@@ -72,17 +75,35 @@ for epoch in range(2):
         intermedaiate_loss = torch.mean((y_hat-snapshot.y)**2) 
         loss = loss + intermedaiate_loss
         step += 1
-        if step%1000==0:
-          print(f"Intermediate loss at step {step}: {intermedaiate_loss.item()}")
-        # if step > subset:
+        # if step%1000==0:
+        #   print(f"Intermediate loss at step {step}: {intermedaiate_loss.item()}")
+        # # if step > subset:
         #   break
+        if step%batch_size == 0:
+            loss = loss / batch_size
+            loss.backward()
+            optimizer.step()
+            optimizer.zero_grad()
+            print("Epoch {}, batch to {} train MSE: {:.4f}".format(epoch, step, loss.item()))
+            epoch_loss.append(loss.detach().cpu().numpy())
+            loss = 0
+    else: 
+        loss = loss / step%batch_size
+        loss.backward()
+        optimizer.step()
+        optimizer.zero_grad()
+        print("Epoch {}, batch to {} train MSE: {:.4f}".format(epoch, step, loss.item()))
+        epoch_loss.append(loss.detach().cpu().numpy())
+        loss = 0
 
-    loss = loss / (step + 1)
-    loss.backward()
-    optimizer.step()
-    optimizer.zero_grad()
-    print("Epoch {} train MSE: {:.4f}".format(epoch, loss.item()))
-    epochs_loss.append(loss.detach().cpu().numpy())
+    # loss = loss / (step + 1)
+    # loss.backward()
+    # optimizer.step()
+    # optimizer.zero_grad()
+    # print("Epoch {} train MSE: {:.4f}".format(epoch, loss.item()))
+    # epochs_loss.append(loss.detach().cpu().numpy())
+    
+    epochs_loss.append(np.mean(epoch_loss))
     
     
     

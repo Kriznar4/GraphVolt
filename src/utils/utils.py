@@ -484,9 +484,6 @@ class SimpleGraphVoltDatasetLoader(object):
         self._edges = self._df_edges[["from_node_id", "to_node_id"]].to_numpy().T
         self._edge_features = self._df_edges.drop(["from_node_id", "to_node_id"], axis=1).to_numpy()
         self._edge_weights = np.ones(self._edges.shape[1])
-        print(self._edges.shape)
-        print(self._edge_features.shape)
-        print(self._edge_weights.shape)
 
     def _get_targets_and_features(self):
         #voltage is the 0th column
@@ -497,7 +494,7 @@ class SimpleGraphVoltDatasetLoader(object):
 
         voltage_index = 0
 
-        dfs = get_array_of_timestemps(self._df_measurments)
+        dfs = get_array_of_timestemps(self._df_measurments)#klobasa
 
         targets = []
         features = []
@@ -508,10 +505,6 @@ class SimpleGraphVoltDatasetLoader(object):
             targets.append(dfs[:, voltage_index, i+self.num_timesteps_in:i+self.num_timesteps_in+self.num_timesteps_out])
         self.features = np.stack(features)
         self.targets = np.stack(targets)
-
-        print(self.features.shape)
-        print(self.targets.shape)
-
 
     def get_dataset(self, num_timesteps_in: int = 12, num_timesteps_out: int = 4) -> StaticGraphTemporalSignal:
         self.num_timesteps_in = num_timesteps_in
@@ -526,4 +519,62 @@ class SimpleGraphVoltDatasetLoader(object):
             )
         return dataset
         
+class SimpleGraphVoltDatasetLoader_Lazy(object):
+    """
+    Check this https://pytorch-geometric-temporal.readthedocs.io/en/latest/_modules/torch_geometric_temporal/dataset/wikimath.html#WikiMathsDatasetLoader
+    for an example of how to implement a dataset loader
+
+    And here are the docs https://pytorch-geometric-temporal.readthedocs.io/en/latest/modules/signal.html
+    """
+    def __init__(self, trafo_id):
+        self._trafo_id = trafo_id
+        self._read_data()
+
+    def _read_data(self):
+        dataset, self.mean_and_std = read_and_prepare_data(self._trafo_id) # save in self.mean_and_std
+        self._df_edges = dataset["edges_static_data"]
+        self._df_measurments = dataset["measurements"]
+        self._periods = len(self._df_measurments["date_time"].unique())
+        self._node_counts = len(self._df_measurments["node_id"].unique())
+
+    def _get_edges_and_edge_weights_and_edge_features(self):
+        self._edges = self._df_edges[["from_node_id", "to_node_id"]].to_numpy().T
+        self._edge_features = self._df_edges.drop(["from_node_id", "to_node_id"], axis=1).to_numpy()
+        self._edge_weights = np.ones(self._edges.shape[1])
+
+    def _get_targets_and_features(self):
+        #voltage is the 0th column
+        #columns names: ['voltage', 'temperature_2m', 'snow_depth', 'cloud_cover', 'is_day',
+        #'shortwave_radiation', 'direct_radiation', 'diffuse_radiation',
+        #'direct_normal_irradiance', 'active_power', 'reactive_power', 'year',
+        #'month', 'day', 'hour', 'minute']
+
+        voltage_index = 0
+
+        self._dfs = get_array_of_timestemps(self._df_measurments)#klobasa
+
+        self.num_snapshots = self._periods-self.num_timesteps_in-self.num_timesteps_out+1
         
+        # targets = []
+        # features = []
+        # for i in range(self._periods-self.num_timesteps_in-self.num_timesteps_out+1):
+        #     # features.append(dfs[i:i+self.num_timesteps_in, :, :])
+        #     features.append(dfs[:,:,i:i+self.num_timesteps_in])
+        #     # targets.append(dfs[i+self.num_timesteps_in:i+self.num_timesteps_in+self.num_timesteps_out, :, voltage_index:voltage_index+1])
+        #     targets.append(dfs[:, voltage_index, i+self.num_timesteps_in:i+self.num_timesteps_in+self.num_timesteps_out])
+        # self.features = np.stack(features)
+        # self.targets = np.stack(targets)
+        
+    def get_snapshot(self, snapshot_index):
+        """
+        Returns a snapshot at index snapshot_index of class Data from 
+        pytorch geometric. 
+        """
+        pass
+        
+
+    def get_dataset(self, num_timesteps_in: int = 12, num_timesteps_out: int = 4) -> StaticGraphTemporalSignal:
+        self.num_timesteps_in = num_timesteps_in
+        self.num_timesteps_out = num_timesteps_out
+        self._get_edges_and_edge_weights_and_edge_features()
+        self._get_targets_and_features()

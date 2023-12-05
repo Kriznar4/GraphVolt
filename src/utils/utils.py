@@ -514,7 +514,7 @@ class SimpleGraphVoltDatasetLoader(object):
         self._get_targets_and_features()
         dataset = StaticGraphTemporalSignal(
             self._edges, 
-            self._edge_weights, 
+            self._edge_features, 
             self.features, 
             self.targets
             )
@@ -550,7 +550,7 @@ class SimpleGraphVoltDatasetLoader_Lazy(object):
         #'direct_normal_irradiance', 'active_power', 'reactive_power', 'year',
         #'month', 'day', 'hour', 'minute']
 
-        voltage_index = 0
+        # voltage_index = 0
 
         self._dfs = torch.tensor(get_array_of_timestemps(self._df_measurments))#klobasa
 
@@ -572,11 +572,12 @@ class SimpleGraphVoltDatasetLoader_Lazy(object):
         pytorch geometric. 
         """
         #x:all node features, edge_index:q-format edges, edge_attr: all edge static features, y: all node labels
-        #Data(x=[113, 21, 12], edge_index=[2, 114], edge_attr=[114], y=[113, 4])
+        #Data(x=[113, 21, 12], edge_index=[2, 114], edge_attr=[114, 5], y=[113, 4])
         
-        x=
-        ... 
-        
+        x = []
+        y = []
+        edge_index = self._edges
+        edge_attr = self._edge_features
 
     def get_dataset(self, num_timesteps_in: int = 12, num_timesteps_out: int = 4):
         self.num_timesteps_in = num_timesteps_in

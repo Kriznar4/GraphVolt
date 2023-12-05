@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import os
 from torch_geometric_temporal.signal import StaticGraphTemporalSignal
+import torch
 
 def read_raw_network_data(trafo_id, depth=1):
     """
@@ -551,7 +552,7 @@ class SimpleGraphVoltDatasetLoader_Lazy(object):
 
         voltage_index = 0
 
-        self._dfs = get_array_of_timestemps(self._df_measurments)#klobasa
+        self._dfs = torch.tensor(get_array_of_timestemps(self._df_measurments))#klobasa
 
         self.num_snapshots = self._periods-self.num_timesteps_in-self.num_timesteps_out+1
         
@@ -565,15 +566,19 @@ class SimpleGraphVoltDatasetLoader_Lazy(object):
         # self.features = np.stack(features)
         # self.targets = np.stack(targets)
         
-    def get_snapshot(self, snapshot_index):
+    def get_snapshot(self, snapshot_index, snapshot_size):
         """
         Returns a snapshot at index snapshot_index of class Data from 
         pytorch geometric. 
         """
-        pass
+        #x:all node features, edge_index:q-format edges, edge_attr: all edge static features, y: all node labels
+        #Data(x=[113, 21, 12], edge_index=[2, 114], edge_attr=[114], y=[113, 4])
+        
+        x=
+        ... 
         
 
-    def get_dataset(self, num_timesteps_in: int = 12, num_timesteps_out: int = 4) -> StaticGraphTemporalSignal:
+    def get_dataset(self, num_timesteps_in: int = 12, num_timesteps_out: int = 4):
         self.num_timesteps_in = num_timesteps_in
         self.num_timesteps_out = num_timesteps_out
         self._get_edges_and_edge_weights_and_edge_features()

@@ -102,7 +102,7 @@ if device_str == 'cuda':
 #get dateime string of now
 now = pd.Timestamp.now().strftime("%Y%m%d%H%M%S")
 
-print("Loading data...", end="")
+print("Loading data...")
 loader = SimpleGraphVoltDatasetLoader_Lazy(trafo_id, num_timesteps_in, num_timesteps_out)
 print(" done")
 loader_data_index = loader.snapshot_index

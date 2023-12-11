@@ -119,7 +119,7 @@ print(losses)
 std = loader.mean_and_std["measurements"][1]["voltage"]
 
 #read saved model
-model.load_state_dict(torch.load(f"../models/A3TGCN_{now}.pt"))
+model.load_state_dict(torch.load(f"../models/A3TGCN_{now}_{trafo_id}_epochs-{epochs}_in-{num_timesteps_in}_out-{num_timesteps_out}_train-ratio-{train_ratio}_lr-{learning_rate}.pt"))
 
 loss_all, loss_elementwise = eval(model, eval_dataset, device, loss_fn, std)
 

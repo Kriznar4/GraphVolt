@@ -82,17 +82,20 @@ def eval(model, eval_dataset, device, loss_fn, std):
         loss_all *= std/steps
         loss_elementwise *= std/steps
     return loss_all, loss_elementwise
-        
-
-torch.cuda.empty_cache() 
+#------parameters------ 
 
 trafo_id = "T1330"
-epochs = 1
+epochs = 25
 num_timesteps_in = 12
 num_timesteps_out = 4
 train_ratio = 0.7
 test_ratio_vs_eval_ratio = 0.5
 learning_rate = 0.01
+device_str = 'cpu'
+
+#----------------------
+if device_str == 'cuda':
+    torch.cuda.empty_cache()
 
 #get dateime string of now
 now = pd.Timestamp.now().strftime("%Y%m%d%H%M%S")
@@ -105,7 +108,7 @@ train_dataset, test_eval_dataset = temporal_signal_split(loader_data, train_rati
 test_dataset, eval_dataset = temporal_signal_split(test_eval_dataset, train_ratio=test_ratio_vs_eval_ratio)
 
 print("Running training...")
-device = torch.device('cuda')
+device = torch.device(device_str)
 model = TemporalGNN(node_features=train_dataset[0].x.shape[1], periods=train_dataset[0].y.shape[1]).to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 loss_fn = torch.nn.L1Loss

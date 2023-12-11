@@ -63,7 +63,7 @@ def train_test(model, device, loader, train_dataset, test_dataset, optimizer, lo
                 epoch_loss_test += loss
             epoch_losses_test.append(epoch_loss_test)
             if min(epoch_losses_test) == epoch_loss_test:
-                torch.save(model.state_dict(), f"../models/A3TGCN_{now}_{trafo_id}_epochs-{epochs}_in-{num_timesteps_in}_out-{num_timesteps_out}_train-ratio-{train_ratio}_lr-{learning_rate}_hidden-{}.pt")
+                torch.save(model.state_dict(), name)
             print("Epoch: {}, Train Loss: {:.7f}, Test Loss: {:.7f}".format(epoch, epoch_loss_train, epoch_loss_test))
         
         

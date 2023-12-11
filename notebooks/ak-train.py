@@ -10,10 +10,10 @@ from tqdm import tqdm
 
 
 class TemporalGNN(torch.nn.Module):
-    def __init__(self, node_features, periods):
+    def __init__(self, node_features, periods, hidden=32):
         super(TemporalGNN, self).__init__()
         # Attention Temporal Graph Convolutional Cell
-        out_channels = 32
+        out_channels = hidden
         self.tgnn = A3TGCN(in_channels=node_features, 
                            out_channels=out_channels, 
                            periods=periods)
@@ -30,10 +30,12 @@ class TemporalGNN(torch.nn.Module):
         h = self.linear(h)
         return h
     
-def train_test(model, device, loader, train_dataset, test_dataset, optimizer, loss_fn, epochs, now):
+def train_test(model, device, loader, train_dataset, test_dataset, optimizer, loss_fn, epochs, now, hidden=32, name=None):
     """
     Definition of the training loop.
     """
+    if name is None:
+        raise ValueError("name must not be None")
     epoch_losses_train = []
     epoch_losses_test = []
     
@@ -61,7 +63,7 @@ def train_test(model, device, loader, train_dataset, test_dataset, optimizer, lo
                 epoch_loss_test += loss
             epoch_losses_test.append(epoch_loss_test)
             if min(epoch_losses_test) == epoch_loss_test:
-                torch.save(model.state_dict(), f"../models/A3TGCN_{now}_{trafo_id}_epochs-{epochs}_in-{num_timesteps_in}_out-{num_timesteps_out}_train-ratio-{train_ratio}_lr-{learning_rate}.pt")
+                torch.save(model.state_dict(), f"../models/A3TGCN_{now}_{trafo_id}_epochs-{epochs}_in-{num_timesteps_in}_out-{num_timesteps_out}_train-ratio-{train_ratio}_lr-{learning_rate}_hidden-{}.pt")
             print("Epoch: {}, Train Loss: {:.7f}, Test Loss: {:.7f}".format(epoch, epoch_loss_train, epoch_loss_test))
         
         
@@ -87,13 +89,14 @@ def eval(model, loader, eval_dataset, device, loss_fn, std):
 #------parameters------ 
 
 trafo_id = "T1330"
-epochs = 25
+epochs = 100
 num_timesteps_in = 100
 num_timesteps_out = 4
 train_ratio = 0.7
 test_ratio_vs_eval_ratio = 0.5
 learning_rate = 0.01
-device_str = 'cuda'
+device_str = 'cpu'
+hidden = 128
 
 #----------------------
 if device_str == 'cuda':
@@ -101,6 +104,8 @@ if device_str == 'cuda':
 
 #get dateime string of now
 now = pd.Timestamp.now().strftime("%Y%m%d%H%M%S")
+
+name = f"../models/A3TGCN_{now}_{trafo_id}_epochs-{epochs}_in-{num_timesteps_in}_out-{num_timesteps_out}_train-ratio-{train_ratio}_lr-{learning_rate}_hidden-{hidden}.pt"
 
 print("Loading data...")
 loader = SimpleGraphVoltDatasetLoader_Lazy(trafo_id, num_timesteps_in, num_timesteps_out)
@@ -115,14 +120,14 @@ device = torch.device(device_str)
 model = TemporalGNN(node_features=loader.num_features, periods=num_timesteps_out).to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 loss_fn = torch.nn.L1Loss
-losses = train_test(model, device, loader, train_dataset, test_dataset, optimizer, loss_fn, epochs=epochs, now=now)
+losses = train_test(model, device, loader, train_dataset, test_dataset, optimizer, loss_fn, epochs=epochs, now=now, hidden=hidden, name=name)
 
 print(losses)
 
 std = loader.mean_and_std["measurements"][1]["voltage"]
 
 #read saved model
-model.load_state_dict(torch.load(f"../models/A3TGCN_{now}_{trafo_id}_epochs-{epochs}_in-{num_timesteps_in}_out-{num_timesteps_out}_train-ratio-{train_ratio}_lr-{learning_rate}.pt"))
+model.load_state_dict(torch.load(name))
 
 loss_all, loss_elementwise = eval(model, loader, eval_dataset, device, loss_fn, std)
 

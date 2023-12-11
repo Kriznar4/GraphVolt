@@ -579,6 +579,7 @@ class SimpleGraphVoltDatasetLoader_Lazy(object):
         #'month', 'day', 'hour', 'minute']
 
         # voltage_index = 0
+        self.voltage_index = self._df_measurments.drop(columns=["date_time", "node_id"]).columns.get_loc("voltage") #TODO: is this ok
 
         self._dfs = torch.Tensor(get_array_of_timestemps(self._df_measurments))#klobasa
         
@@ -594,10 +595,9 @@ class SimpleGraphVoltDatasetLoader_Lazy(object):
         #Data(x=[113, 21, 12], edge_index=[2, 114], edge_attr=[114, 5], y=[113, 4])
         
         #voltage_index = 0
-        self.voltage_index = self._df_measurments.drop(columns=["date_time", "node_id"]).columns.get_loc("voltage") #TODO: is this ok
         
         x = torch.Tensor(self._dfs[:,:,snapshot_i:snapshot_i+self._num_timesteps_in])
-        y = torch.Tensor(self._dfs[:, voltage_index, snapshot_i+self._num_timesteps_in:snapshot_i+self._num_timesteps_in+self._num_timesteps_out])
+        y = torch.Tensor(self._dfs[:, self.voltage_index, snapshot_i+self._num_timesteps_in:snapshot_i+self._num_timesteps_in+self._num_timesteps_out])
         edge_index = torch.LongTensor(self._edges)
         edge_attr = torch.Tensor(self._edge_features)
         
@@ -615,9 +615,4 @@ class SimpleGraphVoltDatasetLoader_Lazy(object):
         test = loader_data_index[split_index:]
 
         return train, test
-
-    # def get_dataset(self, num_timesteps_in: int = 12, num_timesteps_out: int = 4):
-    #     self.num_timesteps_in = num_timesteps_in
-    #     self.num_timesteps_out = num_timesteps_out
-    #     self._get_edges_and_edge_weights_and_edge_features()
-    #     self._get_targets_and_features()
+    

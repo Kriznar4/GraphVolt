@@ -518,8 +518,11 @@ class SimpleGraphVoltDatasetLoader(object):
             self.features, 
             self.targets
             )
+        #Data(x=[113, 21, 12], edge_index=[2, 114], edge_attr=[114, 5], y=[113, 4])
         return dataset
-        
+
+from torch_geometric.data import Data
+   
 class SimpleGraphVoltDatasetLoader_Lazy(object):
     """
     Check this https://pytorch-geometric-temporal.readthedocs.io/en/latest/_modules/torch_geometric_temporal/dataset/wikimath.html#WikiMathsDatasetLoader
@@ -527,9 +530,13 @@ class SimpleGraphVoltDatasetLoader_Lazy(object):
 
     And here are the docs https://pytorch-geometric-temporal.readthedocs.io/en/latest/modules/signal.html
     """
-    def __init__(self, trafo_id):
+    def __init__(self, trafo_id, num_timesteps_in, num_timesteps_out):
         self._trafo_id = trafo_id
+        self._num_timesteps_in = num_timesteps_in
+        self._num_timesteps_out = num_timesteps_out
         self._read_data()
+        self._get_edges_and_edge_weights_and_edge_features()
+        self._get_targets_and_features()
 
     def _read_data(self):
         dataset, self.mean_and_std = read_and_prepare_data(self._trafo_id) # save in self.mean_and_std
@@ -552,9 +559,12 @@ class SimpleGraphVoltDatasetLoader_Lazy(object):
 
         # voltage_index = 0
 
-        self._dfs = torch.tensor(get_array_of_timestemps(self._df_measurments))#klobasa
-
-        self.num_snapshots = self._periods-self.num_timesteps_in-self.num_timesteps_out+1
+        self._dfs = torch.Tensor(get_array_of_timestemps(self._df_measurments))#klobasa
+        
+        # print(self._dfs.shape)
+        self.num_features = self._dfs.shape[1]
+        self.num_snapshots = self._periods-self._num_timesteps_in-self._num_timesteps_out+1
+        self.snapshot_index = range(self.num_snapshots)
         
         # targets = []
         # features = []
@@ -566,21 +576,38 @@ class SimpleGraphVoltDatasetLoader_Lazy(object):
         # self.features = np.stack(features)
         # self.targets = np.stack(targets)
         
-    def get_snapshot(self, snapshot_index, snapshot_size):
+    def get_snapshot(self, snapshot_i):
         """
-        Returns a snapshot at index snapshot_index of class Data from 
+        Returns a snapshot at index snapshot_i of class Data from 
         pytorch geometric. 
         """
         #x:all node features, edge_index:q-format edges, edge_attr: all edge static features, y: all node labels
         #Data(x=[113, 21, 12], edge_index=[2, 114], edge_attr=[114, 5], y=[113, 4])
         
-        x = []
-        y = []
-        edge_index = self._edges
-        edge_attr = self._edge_features
+        voltage_index = 0
+        
+        x = torch.Tensor(self._dfs[:,:,snapshot_i:snapshot_i+self._num_timesteps_in])
+        y = torch.Tensor(self._dfs[:, voltage_index, snapshot_i+self._num_timesteps_in:snapshot_i+self._num_timesteps_in+self._num_timesteps_out])
+        edge_index = torch.LongTensor(self._edges)
+        edge_attr = torch.Tensor(self._edge_features)
+        
+        snapshot = Data(x=x, edge_index=edge_index, edge_attr=edge_attr, y=y)
+        
+        return snapshot
+    
+    def temporal_signal_split_lazy(self, loader_data_index, train_ratio):
+        """
+        Splits loader_data_index to two parts.
+        """
+        split_index = int(train_ratio * len(loader_data_index))
+        
+        train = loader_data_index[0:split_index]
+        test = loader_data_index[split_index:]
 
-    def get_dataset(self, num_timesteps_in: int = 12, num_timesteps_out: int = 4):
-        self.num_timesteps_in = num_timesteps_in
-        self.num_timesteps_out = num_timesteps_out
-        self._get_edges_and_edge_weights_and_edge_features()
-        self._get_targets_and_features()
+        return train, test
+
+    # def get_dataset(self, num_timesteps_in: int = 12, num_timesteps_out: int = 4):
+    #     self.num_timesteps_in = num_timesteps_in
+    #     self.num_timesteps_out = num_timesteps_out
+    #     self._get_edges_and_edge_weights_and_edge_features()
+    #     self._get_targets_and_features()

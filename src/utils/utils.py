@@ -561,27 +561,15 @@ class SimpleGraphVoltDatasetLoader_Lazy(object):
 
         self._dfs = torch.Tensor(get_array_of_timestemps(self._df_measurments))#klobasa
         
-        # print(self._dfs.shape)
         self.num_features = self._dfs.shape[1]
         self.num_snapshots = self._periods-self._num_timesteps_in-self._num_timesteps_out+1
         self.snapshot_index = range(self.num_snapshots)
-        
-        # targets = []
-        # features = []
-        # for i in range(self._periods-self.num_timesteps_in-self.num_timesteps_out+1):
-        #     # features.append(dfs[i:i+self.num_timesteps_in, :, :])
-        #     features.append(dfs[:,:,i:i+self.num_timesteps_in])
-        #     # targets.append(dfs[i+self.num_timesteps_in:i+self.num_timesteps_in+self.num_timesteps_out, :, voltage_index:voltage_index+1])
-        #     targets.append(dfs[:, voltage_index, i+self.num_timesteps_in:i+self.num_timesteps_in+self.num_timesteps_out])
-        # self.features = np.stack(features)
-        # self.targets = np.stack(targets)
         
     def get_snapshot(self, snapshot_i):
         """
         Returns a snapshot at index snapshot_i of class Data from 
         pytorch geometric. 
         """
-        #x:all node features, edge_index:q-format edges, edge_attr: all edge static features, y: all node labels
         #Data(x=[113, 21, 12], edge_index=[2, 114], edge_attr=[114, 5], y=[113, 4])
         
         voltage_index = 0

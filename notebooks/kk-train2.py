@@ -75,7 +75,7 @@ def eval(model, eval_dataset, device, loss_fn, std):
         steps = 0
         for snapshot in tqdm(eval_dataset, desc="Evaluating"):
             steps += 1
-            snapshot = eval_dataset[0].to(device)
+            snapshot.to(device)
             out = model(snapshot.x, snapshot.edge_index)
             loss_all += loss_fn()(out, snapshot.y).cpu().numpy()
             loss_elementwise += loss_fn(reduction="none")(out, snapshot.y).cpu().numpy()

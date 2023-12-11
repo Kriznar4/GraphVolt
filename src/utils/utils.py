@@ -3,6 +3,7 @@ import numpy as np
 import os
 from torch_geometric_temporal.signal import StaticGraphTemporalSignal
 import torch
+from torch_geometric.data import Data
 
 def read_raw_network_data(trafo_id, depth=1):
     """
@@ -520,8 +521,6 @@ class SimpleGraphVoltDatasetLoader(object):
             )
         #Data(x=[113, 21, 12], edge_index=[2, 114], edge_attr=[114, 5], y=[113, 4])
         return dataset
-
-from torch_geometric.data import Data
    
 class SimpleGraphVoltDatasetLoader_Lazy(object):
     """

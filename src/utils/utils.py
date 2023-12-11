@@ -597,7 +597,7 @@ class SimpleGraphVoltDatasetLoader_Lazy(object):
         self.voltage_index = self._df_measurments.drop(columns=["date_time", "node_id"]).columns.get_loc("voltage") #TODO: is this ok
         
         x = torch.Tensor(self._dfs[:,:,snapshot_i:snapshot_i+self._num_timesteps_in])
-        y = torch.Tensor(self._dfs[:, voltage_index, snapshot_i+self._num_timesteps_in:snapshot_i+self._num_timesteps_in+self._num_timesteps_out])
+        y = torch.Tensor(self._dfs[:, self.voltage_index, snapshot_i+self._num_timesteps_in:snapshot_i+self._num_timesteps_in+self._num_timesteps_out])
         edge_index = torch.LongTensor(self._edges)
         edge_attr = torch.Tensor(self._edge_features)
         

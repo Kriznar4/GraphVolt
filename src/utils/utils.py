@@ -424,6 +424,24 @@ def normalize_data(data, column_list):
         
     return data, (mean, std)
 
+def normalize_date_time_to_sin_cos(data, column_list):
+    """
+    Normalizes columns column_list in data to interval [0,1] and replaces them with sin and cos of that value.
+    """
+    data_datetime = data[column_list]
+    return_df = pd.DataFrame()
+
+    #normalitze datetime columns to 0-1 interval
+    for column in data_datetime.columns:
+        data[column] = data[column] - data[column].min()
+        data[column] = data[column] / data[column].max()
+        return_df[f'{column}_sin'] = np.sin(data[column].astype(np.float64))
+        return_df[f'{column}_cos'] = np.cos(data[column].astype(np.float64))
+
+    data = data.drop(columns=column_list)
+    data = pd.concat([data, return_df], axis=1)
+    return data
+
 def read_and_prepare_data(trafo_id, depth=1):
     """
     Reads raw data and prepares it for use as graph with measurements. Now data is ready to be transformed
@@ -437,19 +455,20 @@ def read_and_prepare_data(trafo_id, depth=1):
     data = prepare_edges(data)
     #join dinamic and static node data
     data["measurements"] = pd.merge(data["nodes_static_data"], data["measurements"], on=["node_id"], how="inner")
-    #remove data["nodes_static_data"]
+    #remove data["nodes_static_data"]   
     data.pop("nodes_static_data")
     
     # normalize data and return mean and std
     mean_and_std = {}
+    datetime_list = ['year', 'month', 'day', 'hour', 'minute']
     measurements_not_normalized = ['node_id', 'PMO', 'TR', 'junction', 'date_time']
-    data['measurements'], mean_and_std['measurements'] = normalize_data(data['measurements'], measurements_not_normalized)
+    data['measurements'], mean_and_std['measurements'] = normalize_data(data['measurements'], measurements_not_normalized+datetime_list)
     edges_static_data_not_normalized = ['from_node_id', 'to_node_id']
     data['edges_static_data'], mean_and_std['edges_static_data'] = normalize_data(data['edges_static_data'], edges_static_data_not_normalized)
-    
+    data['measurements'] = normalize_date_time_to_sin_cos(data['measurements'], datetime_list)
     return data, mean_and_std
 
-def get_array_of_timestemps(df_measurments):
+def get_array_of_timestemps(df_measurments): 
     """
     Returns list of dfs ordered by date_time.
     """
@@ -458,6 +477,8 @@ def get_array_of_timestemps(df_measurments):
     dfs = sorted(dfs, key=lambda x: x[0])
     dfs = [df.sort_values(by="node_id").drop(columns=["date_time", "node_id"]) for _, df in dfs]
     #get index of voltage column
+
+    print(f'Voltage index: {dfs[0].columns.get_loc("voltage")}')
 
     #column_names = dfs[0].columns
 
@@ -494,9 +515,10 @@ class SimpleGraphVoltDatasetLoader(object):
         #'direct_normal_irradiance', 'active_power', 'reactive_power', 'year',
         #'month', 'day', 'hour', 'minute']
 
-        voltage_index = 0
-
+        self.voltage_index = self._df_measurments.drop(columns=["date_time", "node_id"]).columns.get_loc("voltage") #TODO: is this ok
+        print(f'Voltage index: {self.voltage_index}')
         dfs = get_array_of_timestemps(self._df_measurments)#klobasa
+        self.dfs = dfs
 
         targets = []
         features = []
@@ -504,7 +526,7 @@ class SimpleGraphVoltDatasetLoader(object):
             # features.append(dfs[i:i+self.num_timesteps_in, :, :])
             features.append(dfs[:,:,i:i+self.num_timesteps_in])
             # targets.append(dfs[i+self.num_timesteps_in:i+self.num_timesteps_in+self.num_timesteps_out, :, voltage_index:voltage_index+1])
-            targets.append(dfs[:, voltage_index, i+self.num_timesteps_in:i+self.num_timesteps_in+self.num_timesteps_out])
+            targets.append(dfs[:, self.voltage_index, i+self.num_timesteps_in:i+self.num_timesteps_in+self.num_timesteps_out])
         self.features = np.stack(features)
         self.targets = np.stack(targets)
 

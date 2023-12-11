@@ -615,9 +615,4 @@ class SimpleGraphVoltDatasetLoader_Lazy(object):
         test = loader_data_index[split_index:]
 
         return train, test
-
-    # def get_dataset(self, num_timesteps_in: int = 12, num_timesteps_out: int = 4):
-    #     self.num_timesteps_in = num_timesteps_in
-    #     self.num_timesteps_out = num_timesteps_out
-    #     self._get_edges_and_edge_weights_and_edge_features()
-    #     self._get_targets_and_features()
+    

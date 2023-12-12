@@ -7,6 +7,7 @@ import torch
 import torch.nn.functional as F
 from torch_geometric_temporal.nn.recurrent import A3TGCN
 from tqdm import tqdm
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 
 class TemporalGNN(torch.nn.Module):
@@ -30,7 +31,7 @@ class TemporalGNN(torch.nn.Module):
         h = self.linear(h)
         return h
     
-def train_test(model, device, loader, train_dataset, test_dataset, optimizer, loss_fn, epochs, now, hidden=32, name=None):
+def train_test(model, device, loader, train_dataset, test_dataset, optimizer, loss_fn, epochs, now, hidden=32, name=None, scheduler=None):
     """
     Definition of the training loop.
     """
@@ -51,6 +52,8 @@ def train_test(model, device, loader, train_dataset, test_dataset, optimizer, lo
             loss.backward()
             optimizer.step()
             epoch_loss_train += loss.detach().cpu().numpy()
+        if scheduler is not None:
+            scheduler.step(epoch_loss_train)
         epoch_losses_train.append(epoch_loss_train)
         model.eval()
         epoch_loss_test = 0
@@ -89,14 +92,14 @@ def eval(model, loader, eval_dataset, device, loss_fn, std):
 #------parameters------ 
 
 trafo_id = "T1330"
-epochs = 100
-num_timesteps_in = 100
+epochs = 30
+num_timesteps_in = 12
 num_timesteps_out = 4
 train_ratio = 0.7
 test_ratio_vs_eval_ratio = 0.5
 learning_rate = 0.01
 device_str = 'cpu'
-hidden = 128
+hidden = 32
 
 #----------------------
 if device_str == 'cuda':
@@ -120,7 +123,8 @@ device = torch.device(device_str)
 model = TemporalGNN(node_features=loader.num_features, periods=num_timesteps_out).to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 loss_fn = torch.nn.L1Loss
-losses = train_test(model, device, loader, train_dataset, test_dataset, optimizer, loss_fn, epochs=epochs, now=now, hidden=hidden, name=name)
+scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
+losses = train_test(model, device, loader, train_dataset, test_dataset, optimizer, loss_fn, epochs=epochs, now=now, hidden=hidden, name=name, scheduler=scheduler)
 
 print(losses)
 

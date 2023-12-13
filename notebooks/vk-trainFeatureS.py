@@ -53,9 +53,6 @@ def train_test(model,device, train_dataset, test_dataset, optimizer, loss_fn, ep
         model.train()
         epoch_loss_train = 0
 
-        subset = 3
-        step=0
-
         for snapshot in tqdm(train_dataset, desc="Training epoch {}".format(epoch)):
             snapshot.to(device)
 
@@ -66,12 +63,6 @@ def train_test(model,device, train_dataset, test_dataset, optimizer, loss_fn, ep
             optimizer.step()
             epoch_loss_train += loss.detach().cpu().numpy()
 
-            step+=1
-
-            if step > subset:
-                break
-
-
         epoch_losses_train.append(epoch_loss_train)
 
         #print(f"Epoch {epoch + 1}, FeatureMLP Weights: {model.state_dict()['feature_mlp.weight']}")
@@ -80,19 +71,12 @@ def train_test(model,device, train_dataset, test_dataset, optimizer, loss_fn, ep
         epoch_loss_test = 0
         with torch.no_grad():
 
-            subset = 100
-            step=0
-
             for snapshot in tqdm(test_dataset, desc="Testing epoch {}".format(epoch)):
                 snapshot.to(device)
 
                 out = model(snapshot.x, snapshot.edge_index,snapshot.edge_weight)
                 loss = loss_fn()(out, snapshot.y).cpu().numpy()
                 epoch_loss_test += loss
-
-                step+=1
-                if step > subset:
-                    break
 
             epoch_losses_test.append(epoch_loss_test)
             if min(epoch_losses_test) == epoch_loss_test:
@@ -110,17 +94,12 @@ def eval(model, feature_mlp,eval_dataset, device, loss_fn, std):
         loss_all = 0
         loss_elementwise = 0
         
-        steps = 0
         for snapshot in tqdm(eval_dataset, desc="Evaluating"):
-            steps += 1
             snapshot.to(device)
 
             out = model(snapshot.x, snapshot.edge_index,snapshot.edge_weight)
             loss_all += loss_fn()(out, snapshot.y).cpu().numpy()
             loss_elementwise += loss_fn(reduction="none")(out, snapshot.y).cpu().numpy()
-
-            if steps > 1000:
-                break
 
         loss_all *= std/steps
         loss_elementwise *= std/steps

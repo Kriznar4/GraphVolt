@@ -9,19 +9,8 @@ from torch_geometric_temporal.nn.recurrent import A3TGCN
 from tqdm import tqdm
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
-class FeatureMLP(torch.nn.Module):
-    def __init__(self, input_size,num_timesteps_in):
-        super(FeatureMLP, self).__init__()
-        self.mlp = torch.nn.Sequential(
-            torch.nn.Linear(input_size*num_timesteps_in, num_timesteps_in),
-            torch.nn.Sigmoid() 
-        )
-
-    def forward(self, x):
-        return self.mlp(x)
-
 class TemporalGNN(torch.nn.Module):
-    def __init__(self, node_features, periods, num_timesteps_in):
+    def __init__(self, node_features, periods, num_of_nodes, num_timesteps_in):
         super(TemporalGNN, self).__init__()
         # Attention Temporal Graph Convolutional Cell
         out_channels = 32
@@ -29,7 +18,10 @@ class TemporalGNN(torch.nn.Module):
                            out_channels=out_channels, 
                            periods=periods)
         
-        self.feature_mlp = FeatureMLP(node_features,num_timesteps_in)
+        self.feature_mlp = torch.nn.Linear(
+            num_of_nodes*num_of_features*num_timesteps_in, 
+            num_of_nodes*num_of_features*num_timesteps_in, 
+            bias=False)
 
         # Equals single-shot prediction
         self.linear = torch.nn.Linear(out_channels,periods)
@@ -41,23 +33,16 @@ class TemporalGNN(torch.nn.Module):
         edge_weights = Graph edge weights
         """
 
-        weighted_x = torch.zeros(x.size(0),x.size(1),x.size(2))
+        x = x.reshape(1, -1)
+        x = self.feature_mlp(x)
+        x = x.reshape(-1,num_of_features,num_timesteps_in)
 
-        for i in range(x.size(0)):
-                
-            node = x[i,:,:]
-            reshaped_node = node.reshape(1,-1)
-            feature_weights = self.feature_mlp(reshaped_node)
-            weighted_x[i] = node * feature_weights
-
-        #we can do this for edge_weights too...but then we need another MLP
-
-        h = self.tgnn(weighted_x, edge_index, edge_weights)
+        h = self.tgnn(x, edge_index, edge_weights)
         h = F.relu(h)
         h = self.linear(h)
         return h
-    
-def train_test(model, feature_mlp,device, train_dataset, test_dataset, optimizer, loss_fn, epochs, now):
+
+def train_test(model,device, train_dataset, test_dataset, optimizer, loss_fn, epochs, now):
     """
     Definition of the training loop.
     """
@@ -68,45 +53,46 @@ def train_test(model, feature_mlp,device, train_dataset, test_dataset, optimizer
         model.train()
         epoch_loss_train = 0
 
+        subset = 3
+        step=0
+
         for snapshot in tqdm(train_dataset, desc="Training epoch {}".format(epoch)):
             snapshot.to(device)
 
-            #create a tensor of the same size as the snapshot.x where I will store the weighted x
-            weighted_x = torch.zeros(snapshot.x.size(0),snapshot.x.size(1),snapshot.x.size(2))
-
-            for i in range(snapshot.x.size(0)):
-                
-                node = snapshot.x[i,:,:]
-                reshaped_node = node.reshape(1,-1)
-                feature_weights = feature_mlp(reshaped_node)
-                weighted_x[i] = node * feature_weights
-
             optimizer.zero_grad()
-            out = model(weighted_x, snapshot.edge_index,snapshot.edge_weight)
+            out = model(snapshot.x, snapshot.edge_index,snapshot.edge_weight)
             loss = loss_fn()(out, snapshot.y)
             loss.backward()
             optimizer.step()
             epoch_loss_train += loss.detach().cpu().numpy()
 
+            step+=1
+
+            if step > subset:
+                break
+
+
         epoch_losses_train.append(epoch_loss_train)
+
+        #print(f"Epoch {epoch + 1}, FeatureMLP Weights: {model.state_dict()['feature_mlp.weight']}")
+
         model.eval()
         epoch_loss_test = 0
         with torch.no_grad():
 
+            subset = 100
+            step=0
+
             for snapshot in tqdm(test_dataset, desc="Testing epoch {}".format(epoch)):
                 snapshot.to(device)
 
-                weighted_x = torch.zeros(snapshot.x.size(0),snapshot.x.size(1),snapshot.x.size(2))
-                for i in range(snapshot.x.size(0)): 
-                    node = snapshot.x[i,:,:]
-                    reshaped_node = node.reshape(1,-1)
-                    feature_weights = feature_mlp(reshaped_node)
-
-                    weighted_x[i] = node * feature_weights
-
-                out = model(weighted_x, snapshot.edge_index,snapshot.edge_weight)
+                out = model(snapshot.x, snapshot.edge_index,snapshot.edge_weight)
                 loss = loss_fn()(out, snapshot.y).cpu().numpy()
                 epoch_loss_test += loss
+
+                step+=1
+                if step > subset:
+                    break
 
             epoch_losses_test.append(epoch_loss_test)
             if min(epoch_losses_test) == epoch_loss_test:
@@ -117,26 +103,24 @@ def train_test(model, feature_mlp,device, train_dataset, test_dataset, optimizer
     return epoch_losses_train, epoch_losses_test
             
             
+            
 def eval(model, feature_mlp,eval_dataset, device, loss_fn, std):
     with torch.no_grad():
         model.eval()
         loss_all = 0
         loss_elementwise = 0
         
+        steps = 0
         for snapshot in tqdm(eval_dataset, desc="Evaluating"):
+            steps += 1
             snapshot.to(device)
 
-            weighted_x = torch.zeros(snapshot.x.size(0),snapshot.x.size(1),snapshot.x.size(2))
-            for i in range(snapshot.x.size(0)): 
-                node = snapshot.x[i,:,:]
-                reshaped_node = node.reshape(1,-1)
-                feature_weights = feature_mlp(reshaped_node)
-
-                weighted_x[i] = node * feature_weights
-
-            out = model(weighted_x, snapshot.edge_index,snapshot.edge_weight)
+            out = model(snapshot.x, snapshot.edge_index,snapshot.edge_weight)
             loss_all += loss_fn()(out, snapshot.y).cpu().numpy()
             loss_elementwise += loss_fn(reduction="none")(out, snapshot.y).cpu().numpy()
+
+            if steps > 1000:
+                break
 
         loss_all *= std/steps
         loss_elementwise *= std/steps
@@ -171,12 +155,15 @@ train_dataset, test_eval_dataset = loader.temporal_signal_split_lazy(loader_data
 test_dataset, eval_dataset = loader.temporal_signal_split_lazy(test_eval_dataset, train_ratio=test_ratio_vs_eval_ratio)
 
 print("Running training...")
+num_of_nodes = train_dataset[0].x.shape[0]
+num_of_features = train_dataset[0].x.shape[1]
+num_of_timesteps = train_dataset[0].x.shape[2]
+
 device = torch.device(device_str)
-feature_mlp = FeatureMLP(train_dataset[0].x.shape[1],num_timesteps_in=num_timesteps_in).to(device)
-model = TemporalGNN(node_features=train_dataset[0].x.shape[1], periods=train_dataset[0].y.shape[1],num_timesteps_in=num_timesteps_in).to(device)
+model = TemporalGNN(node_features=num_of_features, periods=train_dataset[0].y.shape[1],num_timesteps_in=num_timesteps_in,num_of_nodes=num_of_nodes).to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 loss_fn = torch.nn.L1Loss
-losses = train_test(model, feature_mlp, device, train_dataset, test_dataset, optimizer, loss_fn, epochs=epochs, now=now)
+losses = train_test(model, device, train_dataset, test_dataset, optimizer, loss_fn, epochs=epochs, now=now)
 scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
 
 print(losses)

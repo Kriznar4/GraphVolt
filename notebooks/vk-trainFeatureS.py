@@ -10,7 +10,7 @@ from tqdm import tqdm
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 class TemporalGNN(torch.nn.Module):
-    def __init__(self, node_features, periods, num_of_nodes, num_timesteps_in):
+    def __init__(self, node_features, periods):
         super(TemporalGNN, self).__init__()
         # Attention Temporal Graph Convolutional Cell
         out_channels = 32
@@ -18,10 +18,7 @@ class TemporalGNN(torch.nn.Module):
                            out_channels=out_channels, 
                            periods=periods)
         
-        self.feature_mlp = torch.nn.Linear(
-            num_of_nodes*num_of_features*num_timesteps_in, 
-            num_of_nodes*num_of_features*num_timesteps_in, 
-            bias=False)
+        self.feature_linear = torch.nn.Linear(node_features, node_features)
 
         # Equals single-shot prediction
         self.linear = torch.nn.Linear(out_channels,periods)
@@ -33,14 +30,15 @@ class TemporalGNN(torch.nn.Module):
         edge_weights = Graph edge weights
         """
 
-        x = x.reshape(1, -1)
-        x = self.feature_mlp(x)
-        x = x.reshape(-1,num_of_features,num_timesteps_in)
+        x = x.permute(2, 0, 1)
+        x = self.feature_linear(x)
+        x = x.permute(1, 2, 0)
 
         h = self.tgnn(x, edge_index, edge_weights)
         h = F.relu(h)
         h = self.linear(h)
         return h
+
 
 def train_test(model,device, train_dataset, test_dataset, optimizer, loss_fn, epochs, now):
     """
@@ -53,9 +51,9 @@ def train_test(model,device, train_dataset, test_dataset, optimizer, loss_fn, ep
         model.train()
         epoch_loss_train = 0
 
-        for snapshot in tqdm(train_dataset, desc="Training epoch {}".format(epoch)):
+        for snapshot_i in tqdm(train_dataset, desc="Training epoch {}".format(epoch)):
+            snapshot = loader.get_snapshot(snapshot_i)
             snapshot.to(device)
-
             optimizer.zero_grad()
             out = model(snapshot.x, snapshot.edge_index,snapshot.edge_weight)
             loss = loss_fn()(out, snapshot.y)
@@ -65,15 +63,13 @@ def train_test(model,device, train_dataset, test_dataset, optimizer, loss_fn, ep
 
         epoch_losses_train.append(epoch_loss_train)
 
-        #print(f"Epoch {epoch + 1}, FeatureMLP Weights: {model.state_dict()['feature_mlp.weight']}")
-
         model.eval()
         epoch_loss_test = 0
         with torch.no_grad():
 
-            for snapshot in tqdm(test_dataset, desc="Testing epoch {}".format(epoch)):
+            for snapshot_j in tqdm(test_dataset, desc="Testing epoch {}".format(epoch)):
+                snapshot = loader.get_snapshot(snapshot_j)
                 snapshot.to(device)
-
                 out = model(snapshot.x, snapshot.edge_index,snapshot.edge_weight)
                 loss = loss_fn()(out, snapshot.y).cpu().numpy()
                 epoch_loss_test += loss
@@ -88,42 +84,43 @@ def train_test(model,device, train_dataset, test_dataset, optimizer, loss_fn, ep
             
             
             
-def eval(model, feature_mlp,eval_dataset, device, loss_fn, std):
+            
+def eval(model, loader, eval_dataset, device, loss_fn, std):
     with torch.no_grad():
         model.eval()
         loss_all = 0
         loss_elementwise = 0
         
-        for snapshot in tqdm(eval_dataset, desc="Evaluating"):
+        steps = 0
+        for snapshot_i in tqdm(eval_dataset, desc="Evaluating"):
+            snapshot = loader.get_snapshot(snapshot_i)
+            steps += 1
             snapshot.to(device)
-
             out = model(snapshot.x, snapshot.edge_index,snapshot.edge_weight)
             loss_all += loss_fn()(out, snapshot.y).cpu().numpy()
             loss_elementwise += loss_fn(reduction="none")(out, snapshot.y).cpu().numpy()
-
         loss_all *= std/steps
         loss_elementwise *= std/steps
     return loss_all, loss_elementwise
 #------parameters------ 
 
 trafo_id = "T1330"
-epochs = 30
+epochs = 25
 num_timesteps_in = 12
 num_timesteps_out = 4
 train_ratio = 0.7
 test_ratio_vs_eval_ratio = 0.5
 learning_rate = 0.01
 device_str = 'cpu'
-hidden = 32
 
 #----------------------
-if device_str == 'cuda':
+if device_str == 'cpu':
     torch.cuda.empty_cache()
 
 #get dateime string of now
 now = pd.Timestamp.now().strftime("%Y%m%d%H%M%S")
 
-name = f"../models/A3TGCN_{now}_{trafo_id}_epochs-{epochs}_in-{num_timesteps_in}_out-{num_timesteps_out}_train-ratio-{train_ratio}_lr-{learning_rate}_hidden-{hidden}.pt"
+name = f"../models/A3TGCN_{now}_{trafo_id}_epochs-{epochs}_in-{num_timesteps_in}_out-{num_timesteps_out}_train-ratio-{train_ratio}_lr-{learning_rate}.pt"
 
 print("Loading data...")
 loader = SimpleGraphVoltDatasetLoader_Lazy(trafo_id, num_timesteps_in, num_timesteps_out)
@@ -134,12 +131,8 @@ train_dataset, test_eval_dataset = loader.temporal_signal_split_lazy(loader_data
 test_dataset, eval_dataset = loader.temporal_signal_split_lazy(test_eval_dataset, train_ratio=test_ratio_vs_eval_ratio)
 
 print("Running training...")
-num_of_nodes = train_dataset[0].x.shape[0]
-num_of_features = train_dataset[0].x.shape[1]
-num_of_timesteps = train_dataset[0].x.shape[2]
-
 device = torch.device(device_str)
-model = TemporalGNN(node_features=num_of_features, periods=train_dataset[0].y.shape[1],num_timesteps_in=num_timesteps_in,num_of_nodes=num_of_nodes).to(device)
+model = TemporalGNN(node_features=loader.num_features, periods=num_timesteps_out).to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 loss_fn = torch.nn.L1Loss
 losses = train_test(model, device, train_dataset, test_dataset, optimizer, loss_fn, epochs=epochs, now=now)

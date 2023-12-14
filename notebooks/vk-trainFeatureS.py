@@ -10,7 +10,7 @@ from tqdm import tqdm
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 class TemporalGNN(torch.nn.Module):
-    def __init__(self, node_features, periods):
+    def __init__(self, node_features, edge_features, periods):
         super(TemporalGNN, self).__init__()
         # Attention Temporal Graph Convolutional Cell
         out_channels = 32
@@ -20,10 +20,12 @@ class TemporalGNN(torch.nn.Module):
         
         self.feature_linear = torch.nn.Linear(node_features, node_features)
 
+        self.edge_features_linear = torch.nn.Linear(edge_features, 1)
+
         # Equals single-shot prediction
         self.linear = torch.nn.Linear(out_channels,periods)
 
-    def forward(self, x, edge_index, edge_weights):
+    def forward(self, x, edge_index, edge_features):
         """
         x = Node features for T time steps
         edge_index = Graph edge indices
@@ -34,10 +36,15 @@ class TemporalGNN(torch.nn.Module):
         x = self.feature_linear(x)
         x = x.permute(1, 2, 0)
 
-        h = self.tgnn(x, edge_index, edge_weights)
+        edge_features = self.edge_features_linear(edge_features).squeeze()
+        edge_features = F.leaky_relu(edge_features)
+
+        h = self.tgnn(x, edge_index,edge_weight=edge_features)
+
         h = F.relu(h)
         h = self.linear(h)
         return h
+
 
 
 def train_test(model,device, train_dataset, test_dataset, optimizer, loss_fn, epochs, now):
@@ -55,7 +62,7 @@ def train_test(model,device, train_dataset, test_dataset, optimizer, loss_fn, ep
             snapshot = loader.get_snapshot(snapshot_i)
             snapshot.to(device)
             optimizer.zero_grad()
-            out = model(snapshot.x, snapshot.edge_index,snapshot.edge_weight)
+            out = model(snapshot.x, snapshot.edge_index,snapshot.edge_attr)
             loss = loss_fn()(out, snapshot.y)
             loss.backward()
             optimizer.step()
@@ -70,7 +77,7 @@ def train_test(model,device, train_dataset, test_dataset, optimizer, loss_fn, ep
             for snapshot_j in tqdm(test_dataset, desc="Testing epoch {}".format(epoch)):
                 snapshot = loader.get_snapshot(snapshot_j)
                 snapshot.to(device)
-                out = model(snapshot.x, snapshot.edge_index,snapshot.edge_weight)
+                out = model(snapshot.x, snapshot.edge_index,snapshot.edge_attr)
                 loss = loss_fn()(out, snapshot.y).cpu().numpy()
                 epoch_loss_test += loss
 
@@ -96,7 +103,7 @@ def eval(model, loader, eval_dataset, device, loss_fn, std):
             snapshot = loader.get_snapshot(snapshot_i)
             steps += 1
             snapshot.to(device)
-            out = model(snapshot.x, snapshot.edge_index,snapshot.edge_weight)
+            out = model(snapshot.x, snapshot.edge_index,snapshot.edge_attr)
             loss_all += loss_fn()(out, snapshot.y).cpu().numpy()
             loss_elementwise += loss_fn(reduction="none")(out, snapshot.y).cpu().numpy()
         loss_all *= std/steps
@@ -132,9 +139,9 @@ test_dataset, eval_dataset = loader.temporal_signal_split_lazy(test_eval_dataset
 
 print("Running training...")
 device = torch.device(device_str)
-model = TemporalGNN(node_features=loader.num_features, periods=num_timesteps_out).to(device)
+model = TemporalGNN(node_features=loader.num_features, edge_features=loader.num_edge_features ,periods=num_timesteps_out).to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-loss_fn = torch.nn.L1Loss
+loss_fn = torch.nn.MSELoss
 losses = train_test(model, device, train_dataset, test_dataset, optimizer, loss_fn, epochs=epochs, now=now)
 scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
 

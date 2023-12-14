@@ -617,7 +617,7 @@ class SimpleGraphVoltDatasetLoader_Lazy(object):
 
         return train, test
     
-    def temporal_signal_split_lazy_cut(self,loader_data_index, offset=0, number_of_timestemps=10800):
+    def temporal_signal_split_lazy_cut(self,loader_data_index, offset=0, number_of_timestemps=2880):
         """
         Gets the data from 'offset' to 'number_of_timestemps' from the data, and the same time period 
         just one year later for testing.

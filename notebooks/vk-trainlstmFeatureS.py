@@ -86,22 +86,23 @@ def train_test(model,device, train_dataset, test_dataset, optimizer, loss_fn, ep
 
             epoch_losses_test.append(epoch_loss_test)
             if min(epoch_losses_test) == epoch_loss_test:
-                torch.save(model.state_dict(), f"../models/A3TGCN_{now}_{trafo_id}_epochs-{epochs}_in-{num_timesteps_in}_out-{num_timesteps_out}_train-ratio-{train_ratio}_lr-{learning_rate}.pt")
+                torch.save(model.state_dict(), f"../models/LSTMGNNwithFS_{now}_{trafo_id}_epochs-{epochs}_in-{num_timesteps_in}_out-{num_timesteps_out}_train-ratio-{train_ratio}_lr-{learning_rate}.pt")
             print("Epoch: {}, Train Loss: {:.7f}, Test Loss: {:.7f}".format(epoch, epoch_loss_train, epoch_loss_test))
         
         
     return epoch_losses_train, epoch_losses_test
                   
             
-def eval(model, eval_dataset, device, loss_fn, std):
+def eval(model,loader, eval_dataset, device, loss_fn, std):
     with torch.no_grad():
         model.eval()
         loss_all = 0
         loss_elementwise = 0
         
         steps = 0
-        for snapshot in tqdm(eval_dataset, desc="Evaluating"):
+        for snapshot_i in tqdm(eval_dataset, desc="Evaluating"):
             steps += 1
+            snapshot = loader.get_snapshot(snapshot_i)
             snapshot.to(device)
             
             x = snapshot.x.permute(2,0,1)
@@ -132,7 +133,7 @@ if device_str == 'cpu':
 #get dateime string of now
 now = pd.Timestamp.now().strftime("%Y%m%d%H%M%S")
 
-name = f"../models/A3TGCN_{now}_{trafo_id}_epochs-{epochs}_in-{num_timesteps_in}_out-{num_timesteps_out}_train-ratio-{train_ratio}_lr-{learning_rate}.pt"
+name = f"../models/LSTMGNNwithFS_{now}_{trafo_id}_epochs-{epochs}_in-{num_timesteps_in}_out-{num_timesteps_out}_train-ratio-{train_ratio}_lr-{learning_rate}.pt"
 
 print("Loading data...")
 loader = SimpleGraphVoltDatasetLoader_Lazy(trafo_id, num_timesteps_in, num_timesteps_out)

@@ -134,7 +134,7 @@ loader = SimpleGraphVoltDatasetLoader_Lazy(trafo_id, num_timesteps_in, num_times
 print(" done")
 loader_data_index = loader.snapshot_index
 
-train_dataset, test_eval_dataset = loader.temporal_signal_split_lazy(loader_data_index, train_ratio=train_ratio)
+train_dataset, test_eval_dataset = loader.temporal_signal_split_lazy_cut(loader_data_index)
 test_dataset, eval_dataset = loader.temporal_signal_split_lazy(test_eval_dataset, train_ratio=test_ratio_vs_eval_ratio)
 
 print("Running training...")

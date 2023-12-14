@@ -570,7 +570,7 @@ class SimpleGraphVoltDatasetLoader_Lazy(object):
         self._edges = self._df_edges[["from_node_id", "to_node_id"]].to_numpy().T
         self._edge_features = self._df_edges.drop(["from_node_id", "to_node_id"], axis=1).to_numpy()
         self.num_edge_features = self._edge_features.shape[1]
-        #self._edge_weights = np.ones(self._edges.shape[1])
+        #self.edge_weights = np.ones(self._edges.shape[1])
 
     def _get_targets_and_features(self):
         #voltage is the 0th column
@@ -617,3 +617,19 @@ class SimpleGraphVoltDatasetLoader_Lazy(object):
 
         return train, test
     
+    def temporal_signal_split_lazy_cut(self,loader_data_index, offset=0, number_of_timestemps=10800):
+        """
+        Gets the data from 'offset' to 'number_of_timestemps' from the data, and the same time period 
+        just one year later for testing.
+        """
+        
+        timestemps_in_year = 365*24*60 // 15
+
+        #if we dont have enough data to test one year in advance
+        if offset + timestemps_in_year > len(loader_data_index):
+            raise ValueError("Offset is too big")
+        
+        train = loader_data_index[offset:offset+number_of_timestemps]
+        test = loader_data_index[offset + timestemps_in_year : offset + timestemps_in_year + number_of_timestemps]
+
+        return train, test

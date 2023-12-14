@@ -569,7 +569,8 @@ class SimpleGraphVoltDatasetLoader_Lazy(object):
     def _get_edges_and_edge_weights_and_edge_features(self):
         self._edges = self._df_edges[["from_node_id", "to_node_id"]].to_numpy().T
         self._edge_features = self._df_edges.drop(["from_node_id", "to_node_id"], axis=1).to_numpy()
-        self._edge_weights = np.ones(self._edges.shape[1])
+        self.num_edge_features = self._edge_features.shape[1]
+        #self._edge_weights = np.ones(self._edges.shape[1])
 
     def _get_targets_and_features(self):
         #voltage is the 0th column

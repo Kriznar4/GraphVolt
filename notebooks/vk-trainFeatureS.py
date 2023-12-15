@@ -37,7 +37,7 @@ class TemporalGNN(torch.nn.Module):
         x = x.permute(1, 2, 0)
 
         edge_features = self.edge_features_linear(edge_features).squeeze()
-        edge_features = F.leaky_relu(edge_features)
+        edge_features = F.relu(edge_features)
 
         h = self.tgnn(x, edge_index,edge_weight=edge_features)
 

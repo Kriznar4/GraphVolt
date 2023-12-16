@@ -92,14 +92,14 @@ def eval(model, loader, eval_dataset, device, loss_fn, std):
 #------parameters------ 
 
 trafo_id = "T1330"
-epochs = 30
+epochs = 200
 num_timesteps_in = 12
 num_timesteps_out = 4
 train_ratio = 0.7
 test_ratio_vs_eval_ratio = 0.5
 learning_rate = 0.01
 device_str = 'cpu'
-hidden = 32
+hidden = 128
 
 #----------------------
 if device_str == 'cuda':
@@ -115,14 +115,15 @@ loader = SimpleGraphVoltDatasetLoader_Lazy(trafo_id, num_timesteps_in, num_times
 print(" done")
 loader_data_index = loader.snapshot_index
 
-train_dataset, test_eval_dataset = loader.temporal_signal_split_lazy(loader_data_index, train_ratio=train_ratio)
+# train_dataset, test_eval_dataset = loader.temporal_signal_split_lazy(loader_data_index, train_ratio=train_ratio)
+train_dataset, test_eval_dataset = loader.temporal_signal_split_lazy_cut(loader_data_index)
 test_dataset, eval_dataset = loader.temporal_signal_split_lazy(test_eval_dataset, train_ratio=test_ratio_vs_eval_ratio)
 
 print("Running training...")
 device = torch.device(device_str)
-model = TemporalGNN(node_features=loader.num_features, periods=num_timesteps_out).to(device)
+model = TemporalGNN(node_features=loader.num_features, periods=num_timesteps_out, hidden=hidden).to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-loss_fn = torch.nn.L1Loss
+loss_fn = torch.nn.MSELoss
 scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
 losses = train_test(model, device, loader, train_dataset, test_dataset, optimizer, loss_fn, epochs=epochs, now=now, hidden=hidden, name=name, scheduler=scheduler)
 

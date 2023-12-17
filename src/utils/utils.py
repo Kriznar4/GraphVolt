@@ -4,6 +4,7 @@ import os
 from torch_geometric_temporal.signal import StaticGraphTemporalSignal
 import torch
 from torch_geometric.data import Data
+import zipfile
 
 def read_raw_network_data(trafo_id, depth=1):
     """
@@ -20,6 +21,15 @@ def read_raw_network_data(trafo_id, depth=1):
 
     #get path to network
     path_network = os.path.join(path_data_raw, f"{trafo_id}_anon_procesed")
+
+    #check if SMM_measurements.csv is missing
+    csv_file_path = os.path.join(path_network, f"{trafo_id}_SMM_measurements.csv")
+    if not os.path.exists(csv_file_path):
+        #unzip the file
+        zip_file_path = os.path.join(path_network, "T1330_SMM_measurements.zip")
+        with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
+            zip_ref.extract(f"{trafo_id}_SMM_measurements.csv", path_network)
+
 
     #read all csv files from path_network
     df_network_dict = {}

@@ -164,6 +164,7 @@ cython_debug/
 #data/networks_data_raw/*_anon_procesed/*.csv
 data/networks_data_raw/*_anon_procesed/*.zip
 #data/networks_data_raw/*_anon_procesed/*_anon_procesed
+data/networks_data_raw/*_anon_procesed/*_anon_procesed/*_SMM_measurements.csv
 
 #ignore Anton's documents
 references/papers/papers_anton/*

@@ -22,19 +22,19 @@ def read_raw_network_data(trafo_id, depth=1):
     #get path to network
     path_network = os.path.join(path_data_raw, f"{trafo_id}_anon_procesed")
 
-    #check if SMM_measurements.csv is missing
-    csv_file_path = os.path.join(path_network, f"{trafo_id}_SMM_measurements.csv")
-    if not os.path.exists(csv_file_path):
-        #unzip the file
-        zip_file_path = os.path.join(path_network, "T1330_SMM_measurements.zip")
-        with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
-            zip_ref.extract(f"{trafo_id}_SMM_measurements.csv", path_network)
-
-
     #read all csv files from path_network
     df_network_dict = {}
     for tablename in tablenames:
         path_table = os.path.join(path_network, f"{trafo_id}_{tablename}.csv")
+
+        #check if {tablename}.csv is missing
+        if not os.path.exists(path_table):
+            #unzip the file
+            zip_file_path = os.path.join(path_network, f"{trafo_id}_{tablename}.zip")
+            with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
+                zip_ref.extract(f"{trafo_id}_{tablename}.csv", path_network)
+
+
         df_network_dict[tablename] = pd.read_csv(path_table, sep=",", decimal=".")
     
     return df_network_dict, path_network

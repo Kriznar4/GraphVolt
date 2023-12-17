@@ -2,10 +2,11 @@ import torch
 import numpy as np
 from torch import nn
 import torch.nn.functional as F
-from pytorch_geometri_temporal.nn.recurrent import A3TGCN, GConvLSTM
+from torch_geometric_temporal.nn.recurrent import A3TGCN, GConvLSTM
 
 class avgModel():
     def __init__(self, num_timesteps_out, voltage_index):
+        self.name = "avgModel"
         self.num_timesteps_out = num_timesteps_out
         self.voltage_index = voltage_index
 
@@ -23,6 +24,7 @@ class avgModel():
 
 class RNN_LSTM(nn.Module):
     def __init__(self, in_ch, out_ch, hidden_ch, num_layers):
+        self.name = "RNN_LSTM"
         super(RNN_LSTM, self).__init__()
         self.lstm = nn.LSTM(in_ch, hidden_ch, num_layers=num_layers, batch_first=True)
         self.fc = nn.Linear(hidden_ch, out_ch)
@@ -38,6 +40,7 @@ class RNN_LSTM(nn.Module):
 class GNN_A3TGCN(torch.nn.Module):
     def __init__(self, node_features, periods, hidden=32):
         super(GNN_A3TGCN, self).__init__()
+        self.name = "GNN_A3TGCN"
         # Attention Temporal Graph Convolutional Cell
         out_channels = hidden
         self.tgnn = A3TGCN(in_channels=node_features, 
@@ -62,6 +65,7 @@ class GNN_A3TGCN_ea(torch.nn.Module):
     def __init__(self, node_features, periods, hidden=32):
         super(GNN_A3TGCN_ea, self).__init__()
         # Attention Temporal Graph Convolutional Cell
+        self.name = "GNN_A3TGCN_ea"
         out_channels = hidden
         self.tgnn = A3TGCN(in_channels=node_features, 
                            out_channels=out_channels, 
@@ -82,6 +86,7 @@ class GNN_A3TGCN_ea(torch.nn.Module):
 class GNN_A3TGCN_ea_fs(torch.nn.Module):
     def __init__(self, node_features, edge_features, periods, hidden=32):
         super(GNN_A3TGCN_ea_fs, self).__init__()
+        self.name = "GNN_A3TGCN_ea_fs"
         # Attention Temporal Graph Convolutional Cell
         out_channels = hidden
         self.tgnn = A3TGCN(in_channels=node_features, 
@@ -118,7 +123,7 @@ class GNN_A3TGCN_ea_fs(torch.nn.Module):
 class GNN_GCNLSTM(torch.nn.Module):
     def __init__(self,node_features, periods, hidden=32):
         super(GNN_GCNLSTM, self).__init__()
-
+        self.name = "GNN_GCNLSTM"
         out_channels= hidden
         K = 5 # size of Chebyshev filter
         self.recurrent_1 = GConvLSTM(
@@ -136,7 +141,7 @@ class GNN_GCNLSTM(torch.nn.Module):
         self.linear = torch.nn.Linear(out_channels, periods)
 
     def forward(self, timesteps, edge_index):
-
+        timesteps = timesteps.permute(2, 0, 1)
         h1, c1 = None, None
         for x in timesteps:
             h1, c1 = self.recurrent_1(x, edge_index, H=h1, C=c1)
@@ -153,7 +158,7 @@ class GNN_GCNLSTM(torch.nn.Module):
 class GNN_GCNLSTM_ea_fs(torch.nn.Module):
     def __init__(self,node_features, edge_features, periods, hidden=32):
         super(GNN_GCNLSTM_ea_fs, self).__init__()
-
+        self.name = "GNN_GCNLSTM_ea_fs"
         out_channels= hidden
         K = 5 # size of Chebyshev filter
         self.recurrent_1 = GConvLSTM(

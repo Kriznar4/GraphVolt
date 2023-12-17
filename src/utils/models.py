@@ -62,7 +62,7 @@ class GNN_A3TGCN(torch.nn.Module):
 
 
 class GNN_A3TGCN_ea(torch.nn.Module):
-    def __init__(self, node_features, periods, hidden=32):
+    def __init__(self, node_features, edge_features, periods, hidden=32):
         super(GNN_A3TGCN_ea, self).__init__()
         # Attention Temporal Graph Convolutional Cell
         self.name = "GNN_A3TGCN_ea"
@@ -70,6 +70,7 @@ class GNN_A3TGCN_ea(torch.nn.Module):
         self.tgnn = A3TGCN(in_channels=node_features, 
                            out_channels=out_channels, 
                            periods=periods)
+        self.edge_features_linear = torch.nn.Linear(edge_features, 1)
         # Equals single-shot prediction
         self.linear = torch.nn.Linear(out_channels, periods)
 
@@ -78,47 +79,50 @@ class GNN_A3TGCN_ea(torch.nn.Module):
         x = Node features for T time steps
         edge_index = Graph edge indices
         """
+        edge_attr = self.edge_features_linear(edge_attr).squeeze()
+        edge_attr = F.relu(edge_attr)
+
         h = self.tgnn(x, edge_index,edge_attr)
         h = F.relu(h)
         h = self.linear(h)
         return h
     
-class GNN_A3TGCN_ea_fs(torch.nn.Module):
-    def __init__(self, node_features, edge_features, periods, hidden=32):
-        super(GNN_A3TGCN_ea_fs, self).__init__()
-        self.name = "GNN_A3TGCN_ea_fs"
-        # Attention Temporal Graph Convolutional Cell
-        out_channels = hidden
-        self.tgnn = A3TGCN(in_channels=node_features, 
-                           out_channels=out_channels, 
-                           periods=periods)
+# class GNN_A3TGCN_ea_fs(torch.nn.Module):
+#     def __init__(self, node_features, edge_features, periods, hidden=32):
+#         super(GNN_A3TGCN_ea_fs, self).__init__()
+#         self.name = "GNN_A3TGCN_ea_fs"
+#         # Attention Temporal Graph Convolutional Cell
+#         out_channels = hidden
+#         self.tgnn = A3TGCN(in_channels=node_features, 
+#                            out_channels=out_channels, 
+#                            periods=periods)
         
-        self.feature_linear = torch.nn.Linear(node_features, node_features)
+#         self.feature_linear = torch.nn.Linear(node_features, node_features)
 
-        self.edge_features_linear = torch.nn.Linear(edge_features, 1)
+#         self.edge_features_linear = torch.nn.Linear(edge_features, 1)
 
-        # Equals single-shot prediction
-        self.linear = torch.nn.Linear(out_channels,periods)
+#         # Equals single-shot prediction
+#         self.linear = torch.nn.Linear(out_channels,periods)
 
-    def forward(self, x, edge_index, edge_features):
-        """
-        x = Node features for T time steps
-        edge_index = Graph edge indices
-        edge_weights = Graph edge weights
-        """
+#     def forward(self, x, edge_index, edge_features):
+#         """
+#         x = Node features for T time steps
+#         edge_index = Graph edge indices
+#         edge_weights = Graph edge weights
+#         """
 
-        x = x.permute(2, 0, 1)
-        x = self.feature_linear(x)
-        x = x.permute(1, 2, 0)
+#         x = x.permute(2, 0, 1)
+#         x = self.feature_linear(x)
+#         x = x.permute(1, 2, 0)
 
-        edge_features = self.edge_features_linear(edge_features).squeeze()
-        edge_features = F.relu(edge_features)
+#         edge_features = self.edge_features_linear(edge_features).squeeze()
+#         edge_features = F.relu(edge_features)
 
-        h = self.tgnn(x, edge_index,edge_weight=edge_features)
+#         h = self.tgnn(x, edge_index,edge_weight=edge_features)
 
-        h = F.relu(h)
-        h = self.linear(h)
-        return h
+#         h = F.relu(h)
+#         h = self.linear(h)
+#         return h
     
 class GNN_GCNLSTM(torch.nn.Module):
     def __init__(self,node_features, periods, hidden=32):
@@ -152,13 +156,10 @@ class GNN_GCNLSTM(torch.nn.Module):
 
         return x
     
-
-
-    
-class GNN_GCNLSTM_ea_fs(torch.nn.Module):
+class GNN_GCNLSTM_ea(torch.nn.Module):
     def __init__(self,node_features, edge_features, periods, hidden=32):
-        super(GNN_GCNLSTM_ea_fs, self).__init__()
-        self.name = "GNN_GCNLSTM_ea_fs"
+        super(GNN_GCNLSTM_ea, self).__init__()
+        self.name = "GNN_GCNLSTM_ea"
         out_channels= hidden
         K = 5 # size of Chebyshev filter
         self.recurrent_1 = GConvLSTM(
@@ -167,13 +168,14 @@ class GNN_GCNLSTM_ea_fs(torch.nn.Module):
             K=K, normalization='sym', 
             bias=False)
         
-        self.feature_linear = torch.nn.Linear(node_features, node_features)
+        #self.feature_linear = torch.nn.Linear(node_features, node_features)
 
         self.edge_features_linear = torch.nn.Linear(edge_features, 1)
 
         self.linear = torch.nn.Linear(out_channels, periods)
 
     def forward(self, timesteps, edge_index, edge_features):
+        timesteps = timesteps.permute(2, 0, 1)
 
         #print("edge_features is none: ",torch.isnan(edge_features).any())
 
@@ -187,7 +189,7 @@ class GNN_GCNLSTM_ea_fs(torch.nn.Module):
 
             #print("x is none: ",torch.isnan(x).any())
 
-            x = self.feature_linear(x)
+            #x = self.feature_linear(x)
 
             #print("x is none: ",torch.isnan(x).any())
 
@@ -202,3 +204,53 @@ class GNN_GCNLSTM_ea_fs(torch.nn.Module):
         #print("x is none: ",torch.isnan(x).any())
 
         return x
+
+    
+# class GNN_GCNLSTM_ea_fs(torch.nn.Module):
+#     def __init__(self,node_features, edge_features, periods, hidden=32):
+#         super(GNN_GCNLSTM_ea_fs, self).__init__()
+#         self.name = "GNN_GCNLSTM_ea_fs"
+#         out_channels= hidden
+#         K = 5 # size of Chebyshev filter
+#         self.recurrent_1 = GConvLSTM(
+#             in_channels=node_features, 
+#             out_channels=out_channels, 
+#             K=K, normalization='sym', 
+#             bias=False)
+        
+#         self.feature_linear = torch.nn.Linear(node_features, node_features)
+
+#         self.edge_features_linear = torch.nn.Linear(edge_features, 1)
+
+#         self.linear = torch.nn.Linear(out_channels, periods)
+
+#     def forward(self, timesteps, edge_index, edge_features):
+#         timesteps = timesteps.permute(2, 0, 1)
+
+#         #print("edge_features is none: ",torch.isnan(edge_features).any())
+
+#         edge_features = self.edge_features_linear(edge_features).squeeze()
+#         edge_features = F.relu(edge_features)
+
+#         #print("edge_features is none: ",torch.isnan(edge_features).any())
+
+#         h1, c1 = None, None
+#         for x in timesteps:
+
+#             #print("x is none: ",torch.isnan(x).any())
+
+#             x = self.feature_linear(x)
+
+#             #print("x is none: ",torch.isnan(x).any())
+
+#             h1, c1 = self.recurrent_1(x, edge_index,edge_features,H=h1, C=c1)
+
+#             #print("h1 is none: ",torch.isnan(h1).any())
+#             #print("c1 is none: ",torch.isnan(c1).any())
+
+#         x = F.relu(h1)
+#         x = self.linear(x)
+
+#         #print("x is none: ",torch.isnan(x).any())
+
+#         return x

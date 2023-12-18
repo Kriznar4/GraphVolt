@@ -29,33 +29,35 @@ def read_raw_network_data(trafo_id, depth=1, colab=False):
 
     #get path to network
     path_network = os.path.join(path_data_raw, f"{trafo_id}_anon_procesed")
-    print(path_network)
-    # hardcoding for file T1330_SMM_measurements.zip
-    if trafo_id == "T1330" and not os.path.exists(os.path.join(path_network, "T1330_SMM_measurements.zip")):
-        print("MANJKA")
-        # File T1330_SMM_measurements.zip ID from the Google Drive link
-        drive_file_id = '1-FeRNzVLlK0mwi5Dpc4id2vg-TmQmc7P'
-
-        # Destination path for the downloaded zip file
+    if colab:
         print(path_network)
+        # hardcoding for file T1330_SMM_measurements.zip
+        if trafo_id == "T1330" and not os.path.exists(os.path.join(path_network, "T1330_SMM_measurements.zip")):
+            print("MANJKA")
+            # File T1330_SMM_measurements.zip ID from the Google Drive link
+            drive_file_id = '1-FeRNzVLlK0mwi5Dpc4id2vg-TmQmc7P'
 
-        # Download the file from Google Drive
-        url = f'https://drive.google.com/uc?id={drive_file_id}'
-        gdown.download(url, path_network, quiet=False)
-        print("Download ended")
+            # Destination path for the downloaded zip file
+            print(path_network)
+
+            # Download the file from Google Drive
+            url = f'https://drive.google.com/uc?id={drive_file_id}'
+            gdown.download(url, path_network, quiet=False)
+            print("Download ended")
 
     #read all csv files from path_network
     df_network_dict = {}
     for tablename in tablenames:
         path_table = os.path.join(path_network, f"{trafo_id}_{tablename}.csv")
 
-        #check if {tablename}.csv is missing
-        if not os.path.exists(path_table):
-            #unzip the file
-            zip_file_path = os.path.join(path_network, f"{trafo_id}_{tablename}.zip")
+        if colab:
+            #check if {tablename}.csv is missing
+            if not os.path.exists(path_table):
+                #unzip the file
+                zip_file_path = os.path.join(path_network, f"{trafo_id}_{tablename}.zip")
 
-            with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
-                zip_ref.extract(f"{trafo_id}_{tablename}.csv", path_network)
+                with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
+                    zip_ref.extract(f"{trafo_id}_{tablename}.csv", path_network)
 
         df_network_dict[tablename] = pd.read_csv(path_table, sep=",", decimal=".")
     
@@ -587,10 +589,10 @@ class SimpleGraphVoltDatasetLoader_Lazy(object):
         self._trafo_id = trafo_id
         self._num_timesteps_in = num_timesteps_in
         self._num_timesteps_out = num_timesteps_out
+        self.colab = colab
         self._read_data()
         self._get_edges_and_edge_weights_and_edge_features()
         self._get_targets_and_features()
-        self.colab = colab
 
     def _read_data(self):
         dataset, self.mean_and_std = read_and_prepare_data(self._trafo_id, colab=self.colab) # save in self.mean_and_std

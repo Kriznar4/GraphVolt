@@ -13,18 +13,22 @@ def read_raw_network_data(trafo_id, depth=1):
     """
     #get parent dir of cwd
     parent_dir = os.getcwd()
+    print(parent_dir)
     for _ in range(depth):
         parent_dir = os.path.abspath(os.path.join(parent_dir, os.pardir))
+        print(parent_dir)
     #get data folder and then to networks_raw_folder
     path_data_raw = os.path.join(parent_dir, 'data', 'networks_data_raw')
+    print(path_data_raw)
 
     tablenames = ["edges_static_data", "nodes_static_data", "SMM_measurements", "TP_measurements"]
 
     #get path to network
     path_network = os.path.join(path_data_raw, f"{trafo_id}_anon_procesed")
-
+    print(path_network)
     # hardcoding for file T1330_SMM_measurements.zip
     if trafo_id == "T1330" and not os.path.exists(os.path.join(path_network, "T1330_SMM_measurements.zip")):
+        print("MANJKA")
         # File T1330_SMM_measurements.zip ID from the Google Drive link
         drive_file_id = '1-FeRNzVLlK0mwi5Dpc4id2vg-TmQmc7P'
 

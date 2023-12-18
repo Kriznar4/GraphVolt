@@ -669,3 +669,71 @@ class SimpleGraphVoltDatasetLoader_Lazy(object):
         test = loader_data_index[offset + timestemps_in_year : offset + timestemps_in_year + number_of_timestemps]
 
         return train, test
+
+#-----------------model eval-------------------------
+
+def evaluate_model(
+        model,
+        model_name, 
+        model_type,
+        loader,
+        eval_dataset,
+        num_timesteps_out,
+        hidden, 
+        device):
+    
+    if model_type == 'avg':
+        #TODO
+        model = avgModel()
+    elif model_type == 'lstm':
+        #TODO
+        model = RNN_LSTM()
+    elif model_type == 'a3t':
+        model = GNN_A3TGCN(node_features=loader.num_features, periods=num_timesteps_out,hidden=hidden).to(device)
+    elif model_type == 'gcnlstm':
+        model = GNN_GCNLSTM(node_features=loader.num_features, periods=num_timesteps_out,hidden=hidden).to(device)
+    else:
+        raise ValueError('Model type not recognized')
+    
+    if device == torch.device('cpu'):
+        model.load_state_dict(torch.load(f'../models/final/{model_name}.pt'), map_location=device)
+    else: 
+        model.load_state_dict(torch.load(f'../models/final/{model_name}.pt'))
+
+    std = loader.mean_and_std["measurements"][1]["voltage"]
+    mean = loader.mean_and_std["measurements"][0]["voltage"]
+
+    num_of_nodes = loader.get_snapshot(0).x.shape[0]
+    #create a np array of zeros for each node
+    preds = np.zeros((num_of_nodes, len(eval_dataset)))
+    truth = np.zeros((num_of_nodes, len(eval_dataset)))
+
+    LossMAE = 0
+    loss_elementwise = np.zeros((num_of_nodes, num_timesteps_out))
+    loss_fn = torch.nn.L1Loss
+
+    model.eval()
+    with torch.no_grad():
+        index = 0
+        for snapshot_j in tqdm(eval_dataset, desc="Evaluating model"):
+            
+            snapshot = loader.get_snapshot(snapshot_j)
+            snapshot = snapshot.to(device)
+            pred = model(snapshot.x, snapshot.edge_index)
+            pred = pred.detach().numpy()
+            y = snapshot.y.detach().numpy()
+            truth[:, index] = y[:, 0]*std+mean
+            preds[:, index] = pred[:, 0]*std+mean
+
+            pred = torch.from_numpy(pred * is_pmo)
+            y = torch.from_numpy(y * is_pmo)
+
+            LossMAE += loss_fn()(pred, y)
+            loss_elementwise += loss_fn(reduction="none")(pred, y).cpu().numpy()
+                        
+            index += 1
+
+        LossMAE *= std/len(eval_dataset)
+        loss_elementwise *= std/len(eval_dataset)
+
+    return preds, truth, np.abs(preds-truth)

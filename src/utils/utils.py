@@ -598,6 +598,7 @@ class SimpleGraphVoltDatasetLoader_Lazy(object):
         dataset, self.mean_and_std = read_and_prepare_data(self._trafo_id, colab=self.colab) # save in self.mean_and_std
         self._df_edges = dataset["edges_static_data"]
         self._df_measurments = dataset["measurements"]
+        self.is_pmo = np.array(self._df_measurments.groupby("node_id").agg("mean")["PMO"])
         self._periods = len(self._df_measurments["date_time"].unique())
         self._node_counts = len(self._df_measurments["node_id"].unique())
 

@@ -16,35 +16,35 @@ def read_raw_network_data(trafo_id, depth=1, colab=False):
     #print(parent_dir)
     for _ in range(depth):
         parent_dir = os.path.abspath(os.path.join(parent_dir, os.pardir))
-        print(parent_dir)
+        #print(parent_dir)
     #get data folder and then to networks_raw_folder
     
     if colab:
         path_data_raw = os.path.join(parent_dir, 'GraphVolt', 'data', 'networks_data_raw')
     else:
         path_data_raw = os.path.join(parent_dir, 'data', 'networks_data_raw')
-    print(path_data_raw)
+    #print(path_data_raw)
 
     tablenames = ["edges_static_data", "nodes_static_data", "SMM_measurements", "TP_measurements"]
 
     #get path to network
     path_network = os.path.join(path_data_raw, f"{trafo_id}_anon_procesed")
     if colab:
-        print(path_network)
+        #print(path_network)
         # hardcoding for file T1330_SMM_measurements.zip
         if trafo_id == "T1330" and not os.path.exists(os.path.join(path_network, "T1330_SMM_measurements.zip")):
-            print("MANJKA")
+            #print("MANJKA")
             # File T1330_SMM_measurements.zip ID from the Google Drive link
             drive_file_id = '1-FeRNzVLlK0mwi5Dpc4id2vg-TmQmc7P'
 
             # Destination path for the downloaded zip file
             destination_path = os.path.join(path_network, "T1330_SMM_measurements.zip")
-            print(destination_path)
+            #print(destination_path)
 
             # Download the file from Google Drive
             url = f'https://drive.google.com/uc?id={drive_file_id}'
             gdown.download(url, destination_path, quiet=False)
-            print("Download ended")
+            #print("Download ended")
 
     #read all csv files from path_network
     df_network_dict = {}

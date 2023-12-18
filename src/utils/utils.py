@@ -5,6 +5,7 @@ from torch_geometric_temporal.signal import StaticGraphTemporalSignal
 import torch
 from torch_geometric.data import Data
 import zipfile
+import gdown
 
 def read_raw_network_data(trafo_id, depth=1):
     """
@@ -22,6 +23,18 @@ def read_raw_network_data(trafo_id, depth=1):
     #get path to network
     path_network = os.path.join(path_data_raw, f"{trafo_id}_anon_procesed")
 
+    # hardcoding for file T1330_SMM_measurements.zip
+    if trafo_id == "T1330" and not os.path.exists(os.path.join(path_network, "T1330_SMM_measurements.zip")):
+        # File T1330_SMM_measurements.zip ID from the Google Drive link
+        drive_file_id = '1-FeRNzVLlK0mwi5Dpc4id2vg-TmQmc7P'
+
+        # Destination path for the downloaded zip file
+        zip_file_path = os.path.join(path_network, 'T1330_SMM_measurements.zip')
+
+        # Download the file from Google Drive
+        url = f'https://drive.google.com/uc?id={drive_file_id}'
+        gdown.download(url, zip_file_path, quiet=False)
+
     #read all csv files from path_network
     df_network_dict = {}
     for tablename in tablenames:
@@ -31,9 +44,9 @@ def read_raw_network_data(trafo_id, depth=1):
         if not os.path.exists(path_table):
             #unzip the file
             zip_file_path = os.path.join(path_network, f"{trafo_id}_{tablename}.zip")
+
             with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
                 zip_ref.extract(f"{trafo_id}_{tablename}.csv", path_network)
-
 
         df_network_dict[tablename] = pd.read_csv(path_table, sep=",", decimal=".")
     

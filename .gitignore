@@ -161,10 +161,10 @@ cython_debug/
 
 #ignore files isnide folders from data/networks_data/*_anon/*.csv
 #data/networks_data_raw/*_anon/*.csv
-#data/networks_data_raw/*_anon_procesed/*.csv
-data/networks_data_raw/*_anon_procesed/*.zip
+data/networks_data_raw/*_anon_procesed/*.csv
+#data/networks_data_raw/*_anon_procesed/*.zip
 #data/networks_data_raw/*_anon_procesed/*_anon_procesed
-data/networks_data_raw/*_anon_procesed/*_anon_procesed/*.csv
+data/networks_data_raw/T1330_anon_procesed/T1330_SMM_measurements.zip
 
 #ignore Anton's documents
 references/papers/papers_anton/*

@@ -7,18 +7,22 @@ from torch_geometric.data import Data
 import zipfile
 import gdown
 
-def read_raw_network_data(trafo_id, depth=1):
+def read_raw_network_data(trafo_id, depth=1, colab=False):
     """
     Reads all csv files from a given transformer stations. Depth is number of parent filders to get to GraphVolt folder.
     """
     #get parent dir of cwd
     parent_dir = os.getcwd()
-    print(parent_dir)
+    #print(parent_dir)
     for _ in range(depth):
         parent_dir = os.path.abspath(os.path.join(parent_dir, os.pardir))
         print(parent_dir)
     #get data folder and then to networks_raw_folder
-    path_data_raw = os.path.join(parent_dir, 'data', 'networks_data_raw')
+    
+    if colab:
+        path_data_raw = os.path.join(parent_dir, 'GraphVolt', 'data', 'networks_data_raw')
+    else:
+        path_data_raw = os.path.join(parent_dir, 'data', 'networks_data_raw')
     print(path_data_raw)
 
     tablenames = ["edges_static_data", "nodes_static_data", "SMM_measurements", "TP_measurements"]
@@ -470,12 +474,12 @@ def normalize_date_time_to_sin_cos(data, column_list):
     data = pd.concat([data, return_df], axis=1)
     return data
 
-def read_and_prepare_data(trafo_id, depth=1):
+def read_and_prepare_data(trafo_id, depth=1, colab=False):
     """
     Reads raw data and prepares it for use as graph with measurements. Now data is ready to be transformed
     to pytorch geometric temporal data format.
     """
-    data, _ = read_raw_network_data(trafo_id, depth=depth)
+    data, _ = read_raw_network_data(trafo_id, depth=depth, colab=colab)
     data = fill_data_simple_homogeneous(data)
     data = preprocess(data)
     data = fill_junction_RO_measurments(data)
@@ -579,16 +583,17 @@ class SimpleGraphVoltDatasetLoader_Lazy(object):
 
     And here are the docs https://pytorch-geometric-temporal.readthedocs.io/en/latest/modules/signal.html
     """
-    def __init__(self, trafo_id, num_timesteps_in, num_timesteps_out):
+    def __init__(self, trafo_id, num_timesteps_in, num_timesteps_out, colab=False):
         self._trafo_id = trafo_id
         self._num_timesteps_in = num_timesteps_in
         self._num_timesteps_out = num_timesteps_out
         self._read_data()
         self._get_edges_and_edge_weights_and_edge_features()
         self._get_targets_and_features()
+        self.colab = colab
 
     def _read_data(self):
-        dataset, self.mean_and_std = read_and_prepare_data(self._trafo_id) # save in self.mean_and_std
+        dataset, self.mean_and_std = read_and_prepare_data(self._trafo_id, colab=self.colab) # save in self.mean_and_std
         self._df_edges = dataset["edges_static_data"]
         self._df_measurments = dataset["measurements"]
         self._periods = len(self._df_measurments["date_time"].unique())

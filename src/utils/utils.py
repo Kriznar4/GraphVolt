@@ -38,11 +38,12 @@ def read_raw_network_data(trafo_id, depth=1, colab=False):
             drive_file_id = '1-FeRNzVLlK0mwi5Dpc4id2vg-TmQmc7P'
 
             # Destination path for the downloaded zip file
-            print(path_network)
+            destination_path = os.path.join(path_network, "T1330_SMM_measurements.zip")
+            print(destination_path)
 
             # Download the file from Google Drive
             url = f'https://drive.google.com/uc?id={drive_file_id}'
-            gdown.download(url, path_network, quiet=False)
+            gdown.download(url, destination_path, quiet=False)
             print("Download ended")
 
     #read all csv files from path_network

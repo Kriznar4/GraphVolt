@@ -27,7 +27,7 @@ def LossCurve(epochs, train_losses, test_losses, eval_losses):
 def plot_network_errors(trafo_id, errors, colab=False):
 
     #get data
-    raw_data,_ = read_raw_network_data(trafo_id, colab)
+    raw_data,_ = read_raw_network_data(trafo_id, colab=colab)
     raw_data = fill_data_simple_homogeneous(raw_data)
     data = preprocess(raw_data)
 
@@ -143,28 +143,7 @@ def plot_network_errors(trafo_id, errors, colab=False):
             'yanchor': 'top'
         }
     ]
-    layout.sliders = [
-        {
-            'active': 0,
-            'yanchor': 'top',
-            'xanchor': 'left',
-            'transition': {'duration': 300, 'easing': 'cubic-in-out'},
-            'steps': [
-                {
-                    'args': [
-                        [f'{frame_idx}'],
-                        {
-                            'frame': {'duration': 300, 'redraw': True},
-                            'mode': 'immediate',
-                            'transition': {'duration': 300}
-                        }
-                    ],
-                    'label': f'{frame_idx}',
-                    'method': 'animate'
-                } for frame_idx in range(len(errors))
-            ]
-        }
-    ]
+    
     fig.frames = frames
     fig.update_layout(layout)
     fig.show()

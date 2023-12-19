@@ -43,7 +43,7 @@ def read_raw_network_data(trafo_id, depth=1, colab=False):
 
             # Download the file from Google Drive
             url = f'https://drive.google.com/uc?id={drive_file_id}'
-            gdown.download(url, destination_path, quiet=False)
+            gdown.download(url, destination_path, quiet=True)
             #print("Download ended")
 
     #read all csv files from path_network

@@ -24,10 +24,10 @@ def LossCurve(epochs, train_losses, test_losses, eval_losses):
 
 
 
-def plot_network_errors(trafo_id, errors):
+def plot_network_errors(trafo_id, errors, colab=False):
 
     #get data
-    raw_data,_ = read_raw_network_data(trafo_id)
+    raw_data,_ = read_raw_network_data(trafo_id, colab)
     raw_data = fill_data_simple_homogeneous(raw_data)
     data = preprocess(raw_data)
 

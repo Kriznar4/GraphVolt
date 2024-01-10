@@ -29,3 +29,5 @@ pip install torch_scatter torch_sparse torch_cluster torch_spline_conv -f https:
 
 pip install torch-geometric-temporal
 ```
+
+Link to medium article (just a preview): https://medium.com/@tt6523/short-term-voltage-forecasting-with-graph-neural-networks-ce8c81eb6e90.
